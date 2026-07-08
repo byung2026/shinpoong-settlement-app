@@ -206,15 +206,30 @@ async function addHospitalToSheet(name) {
   catch (e) { console.error('병원명 저장 실패:', e); }
 }
 async function addMonthToSheet(month) {
-  try { await apiPost('addMonth', { month }); }
+  try { await apiPost('addMonth', { month: normalizeMonth(month) }); }
   catch (e) { console.error('정산월 저장 실패:', e); }
+}
+// 정산월 값을 항상 'YYYY-MM' 형태로 정규화 (구글 시트가 날짜로 자동변환해 2026-05-31T15:00:00.000Z 같이 들어와도 처리)
+function normalizeMonth(v) {
+  if (v === null || v === undefined) return '';
+  let s = String(v).trim();
+  if (!s) return '';
+  // 이미 YYYY-MM 형태면 그대로
+  const m = s.match(/(\d{4})[-/.](\d{1,2})/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2, '0')}`;
+  // ISO 날짜/시간 문자열이면 Date로 파싱해서 현지시각 기준 연-월 추출
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+  return s;
 }
 const st = { items: [], saved: [], filter: '', monthFilter: 'ALL', savedMonthFilter: 'ALL', hospitals: ['신풍병원'], months: ['2026-04'] };
 const $ = id => document.getElementById(id);
 const fmt = v => new Intl.NumberFormat('ko-KR', {maximumFractionDigits:0}).format(Number(v||0));
 const money = v => fmt(v) + '원';
 function currentHospital() { return $('hospitalInput').value || $('hospitalSelect').value || '병원'; }
-function currentMonth() { return $('monthInput').value || $('monthSelect').value || '정산월'; }
+function currentMonth() { return normalizeMonth($('monthInput').value || $('monthSelect').value) || '정산월'; }
 function titleText() { return `${currentHospital()} · ${currentMonth()} 정산`; }
 function keyText() { return `${currentHospital()}__${currentMonth()}`; }
 function updateHeader() { $('title').textContent = titleText(); $('savekey').textContent = '저장 키: ' + keyText(); }
@@ -273,7 +288,7 @@ async function loadMeta() {
     const res = await apiGet('getMeta');
     const rows = res.data || [];
     const hospitals = rows.map(r => r['병원명']).filter(Boolean);
-    const months = rows.map(r => r['정산월']).filter(Boolean);
+    const months = rows.map(r => normalizeMonth(r['정산월'])).filter(Boolean);
     st.hospitals = uniqSorted([...hospitals, '신풍병원']);
     st.months = uniqSorted([...months, '2026-04']);
   } catch (e) {
@@ -294,8 +309,9 @@ function addHospital() {
   if (isNew) addHospitalToSheet(name);
 }
 function addMonth() {
-  const month = ($('monthInput').value || '').trim();
+  const month = normalizeMonth(($('monthInput').value || '').trim());
   if (!month) return;
+  $('monthInput').value = month;
   const isNew = !st.months.includes(month);
   st.months = uniqSorted([...st.months, month]);
   renderHospitalMonthSelectors(); $('monthSelect').value = month; updateHeader(); renderMonthFilter(); renderMonthOverview();
@@ -375,9 +391,10 @@ async function loadSaved() {
     st.saved = rows.map(r => {
       let items = [];
       try { items = JSON.parse(r['품목내역JSON'] || '[]'); } catch (e) { items = []; }
+      const mm = normalizeMonth(r['정산월']);
       return {
-        key: r['key'], hospital: r['병원명'], month: r['정산월'],
-        title: `${r['병원명']} · ${r['정산월']} 정산`,
+        key: r['key'], hospital: r['병원명'], month: mm,
+        title: `${r['병원명']} · ${mm} 정산`,
         savedAt: r['저장시각'], items,
         totalSales: Number(r['총판매금액'] || 0), totalFee: Number(r['총수수료'] || 0),
         totalSupply: Number(r['총공급가액'] || 0), totalVat: Number(r['총부가세'] || 0),
