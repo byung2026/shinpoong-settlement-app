@@ -4,67 +4,1040 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>신풍제약 정산 계산기</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 body{margin:0;background:linear-gradient(180deg,#020617,#0f172a 35%,#111827);color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif}
 .wrap{max-width:1080px;margin:0 auto;padding:16px}
 .card{background:#111827;border:1px solid #334155;border-radius:16px;padding:14px;margin-bottom:12px}
 .grid{display:grid;gap:12px} .g2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .g3{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)}
 input,select,button{width:100%;min-width:0;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid #334155;background:#020617;color:#f8fafc;font-size:15px}
-select{
-  text-overflow:ellipsis;white-space:nowrap;overflow:hidden;
-  -webkit-appearance:none;-moz-appearance:none;appearance:none;
-  background-image:url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2394a3b8'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");
-  background-repeat:no-repeat;background-position:right 12px center;background-size:18px;
-  padding-right:38px;cursor:pointer;
-}
+select{-webkit-appearance:none;-moz-appearance:none;appearance:none;background-image:url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2394a3b8'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:18px;padding-right:38px;cursor:pointer;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
 .grid>div{min-width:0}
-button{border:none;font-weight:700;background:linear-gradient(90deg,#38bdf8,#22c55e);color:#001018}
+button{border:none;font-weight:700;background:linear-gradient(90deg,#38bdf8,#22c55e);color:#001018;cursor:pointer}
 button.sec{background:#020617;color:#f8fafc;border:1px solid #334155}
 button.del{background:#3f1111;color:#fecaca;border:1px solid #7f1d1d}
 button.alt{background:linear-gradient(90deg,#a78bfa,#60a5fa);color:white}
+button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
 .small{font-size:12px;color:#cbd5e1}
 .metric{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(148,163,184,.12)}
 .metric:last-child{border-bottom:none}
 .item{background:#020617;border:1px solid #334155;border-radius:14px;padding:12px;margin-bottom:10px}
-.summary{background:linear-gradient(135deg, rgba(56,189,248,.12), rgba(34,197,94,.12));border:1px solid rgba(56,189,248,.25);border-radius:14px;padding:12px}
+.summary{background:linear-gradient(135deg,rgba(56,189,248,.12),rgba(34,197,94,.12));border:1px solid rgba(56,189,248,.25);border-radius:14px;padding:12px}
 .actions{display:flex;gap:8px;flex-wrap:wrap} .actions>*{flex:1;min-width:120px}
 .table-wrap{overflow-x:auto} table{width:100%;border-collapse:collapse;font-size:14px} th,td{padding:10px 8px;border-bottom:1px solid rgba(148,163,184,.12);text-align:left;white-space:nowrap} th{color:#cbd5e1;font-weight:600}
+.tab-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
+.tab-btn{flex:1;min-width:100px;padding:10px;border-radius:12px;border:1px solid #334155;background:#020617;color:#94a3b8;font-weight:600;cursor:pointer;font-size:14px}
+.tab-btn.active{background:linear-gradient(90deg,#38bdf8,#22c55e);color:#001018;border:none}
+.tab-content{display:none} .tab-content.active{display:block}
+.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;margin-left:6px}
+.badge-new{background:#166534;color:#bbf7d0}
+.badge-changed{background:#92400e;color:#fde68a}
+.badge-end{background:#7f1d1d;color:#fecaca}
+.loading{text-align:center;padding:40px;color:#64748b}
+.config-warn{background:#1c0a00;border:1px solid #92400e;border-radius:12px;padding:14px;margin-bottom:16px;color:#fde68a}
 @media(max-width:760px){.g2,.g3{grid-template-columns:1fr} th,td{font-size:12px}}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>신풍제약 정산 계산기</h1>
-  <div class="small" style="margin-bottom:12px;">메디커튼 50% 반영 · 원요율 정수 확정 후 0% 제외 +1% · 수수료율 정수 표시 버전</div>
+  <div class="small" style="margin-bottom:4px;">Supabase 연동 · 기간별 수수료율 자동 적용 · 제품 유효기간 관리</div>
 
-  <div class="grid g2">
-    <div class="card">
-      <h3>기본 정보</h3>
-      <div class="grid g2">
-        <div><div class="small">병원명 선택</div><select id="hospitalSelect"></select></div>
-        <div><div class="small">정산월 선택</div><select id="monthSelect"></select></div>
+  <!-- Supabase 설정 안내 -->
+  <div id="configWarn" class="config-warn" style="display:none;">
+    ⚠️ Supabase URL과 KEY를 아래 설정 탭에서 입력해주세요.
+  </div>
+
+  <!-- 탭 바 -->
+  <div class="tab-bar">
+    <button class="tab-btn active" onclick="switchTab('settlement')">정산 입력</button>
+    <button class="tab-btn" onclick="switchTab('monthly')">월별 현황</button>
+    <button class="tab-btn" onclick="switchTab('admin')">제품 관리</button>
+    <button class="tab-btn" onclick="switchTab('config')">설정</button>
+  </div>
+
+  <!-- ===== 탭1: 정산 입력 ===== -->
+  <div id="tab-settlement" class="tab-content active">
+    <div class="grid g2">
+      <div class="card">
+        <h3>기본 정보</h3>
+        <div class="grid g2">
+          <div><div class="small">병원명 선택</div><select id="hospitalSelect"></select></div>
+          <div><div class="small">정산월 선택</div><select id="monthSelect"></select></div>
+        </div>
+        <div class="grid g2" style="margin-top:12px;">
+          <div><div class="small">새 병원명 추가</div><input id="hospitalInput" placeholder="병원명 입력"></div>
+          <div><div class="small">새 정산월 추가</div><input id="monthInput" placeholder="2026-07"></div>
+        </div>
+        <div class="actions" style="margin-top:10px;">
+          <button id="addHospital" class="sec">병원명 등록</button>
+          <button id="addMonth" class="sec">정산월 등록</button>
+        </div>
+        <div class="summary" style="margin-top:12px;">
+          <div class="small">현재 정산</div>
+          <div id="title" style="font-size:20px;font-weight:800;margin-top:4px"></div>
+        </div>
       </div>
-      <div class="grid g2" style="margin-top:12px;">
-        <div><div class="small">새 병원명 추가</div><input id="hospitalInput" value="신풍병원"></div>
-        <div><div class="small">새 정산월 추가</div><input id="monthInput" value="2026-04"></div>
-      </div>
-      <div class="actions" style="margin-top:10px;">
-        <button id="addHospital" class="sec">병원명 등록</button>
-        <button id="addMonth" class="sec">정산월 등록</button>
-      </div>
-      <div class="summary" style="margin-top:12px;">
-        <div class="small">현재 정산 제목</div>
-        <div id="title" style="font-size:20px;font-weight:800;margin-top:4px"></div>
-        <div class="small" id="savekey" style="margin-top:6px"></div>
+      <div class="card">
+        <h3>핵심 합계</h3>
+        <div class="metric"><span>총 판매금액</span><b id="ts">0원</b></div>
+        <div class="metric"><span>총 수수료(부가세 포함)</span><b id="tf">0원</b></div>
+        <div class="metric"><span>공급가액</span><b id="tp">0원</b></div>
+        <div class="metric"><span>부가세</span><b id="tv">0원</b></div>
+        <div class="metric"><span>표면 수수료율</span><b id="dr">0%</b></div>
+        <div class="metric"><span>실질 수수료율</span><b id="rr">0%</b></div>
       </div>
     </div>
+
     <div class="card">
-      <h3>핵심 합계</h3>
-      <div class="metric"><span>총 판매금액</span><b id="ts">0원</b></div>
-      <div class="metric"><span>총 수수료(부가세 포함)</span><b id="tf">0원</b></div>
-      <div class="metric"><span>공급가액</span><b id="tp">0원</b></div>
-      <div class="metric"><span>부가세</span><b id="tv">0원</b></div>
-      <div class="metric"><span>표면 수수료율</span><b id="dr">0%</b></div>
+      <h3>품목 추가</h3>
+      <div class="grid g3">
+        <div><div class="small">제품명</div><select id="product"></select></div>
+        <div><div class="small">수량</div><input id="qty" type="number" min="1" value="1"></div>
+        <div><div class="small">제품 검색</div><input id="search" placeholder="제품명 검색"></div>
+      </div>
+      <div id="methodRow" style="display:none;margin-top:10px;">
+        <div class="small" style="margin-bottom:6px;">비급여 거래방식</div>
+        <select id="method">
+          <option value="A">방식 A · 정가거래 + 나중에 수수료 정산 (약가 × 수량)</option>
+          <option value="B">방식 B · 즉시 할인출하 (출하가 × 수량으로 기록, 수수료 0원)</option>
+        </select>
+      </div>
+      <div id="rateInfo" style="margin-top:10px;"></div>
+      <div class="actions" style="margin-top:10px;">
+        <button id="addItem">정산 품목에 추가</button>
+        <button id="resetItems" class="sec">현재 품목 초기화</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>저장 / 내보내기</h3>
+      <div class="actions">
+        <button id="save">현재 정산 저장</button>
+        <button id="showMonth" class="alt">선택 월 병원 보기</button>
+        <button id="downloadCsv" class="sec">CSV 다운로드</button>
+        <button id="downloadPdf" class="sec">PDF 보기</button>
+      </div>
+      <div class="grid g2" style="margin-top:12px;">
+        <div><div class="small">저장 목록 월 필터</div><select id="savedMonthFilter"></select></div>
+        <div></div>
+      </div>
+      <div id="saved" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="grid g2">
+      <div class="card"><h3>정산 품목</h3><div id="items"></div></div>
+      <div class="card"><h3>요약</h3><div id="summaryBox"></div></div>
+    </div>
+  </div>
+
+  <!-- ===== 탭2: 월별 현황 ===== -->
+  <div id="tab-monthly" class="tab-content">
+    <div class="card" id="monthOverviewCard">
+      <h3>월별 전체 병원 현황</h3>
+      <div class="grid g2" style="margin-bottom:12px;">
+        <div><div class="small">월 선택</div><select id="monthFilter"></select></div>
+        <div></div>
+      </div>
+      <div class="actions" style="margin-bottom:12px;">
+        <button id="downloadMonthCsv" class="sec">선택 월 전체 CSV</button>
+        <button id="downloadMonthPdf" class="sec">선택 월 전체 PDF</button>
+      </div>
+      <div id="monthOverview"></div>
+    </div>
+  </div>
+
+  <!-- ===== 탭3: 제품 관리 ===== -->
+  <div id="tab-admin" class="tab-content">
+    <div class="card">
+      <h3>급여 제품 관리</h3>
+      <div class="small" style="margin-bottom:12px;">제품별 적용시작월·종료월·수수료율 이력을 관리합니다. 정산월에 맞는 요율이 자동 적용됩니다.</div>
+      <div class="actions" style="margin-bottom:12px;">
+        <button onclick="showAddProductModal('covered')" class="sec">+ 급여 제품 추가</button>
+        <button onclick="showAddRateModal()" class="sec">+ 수수료율 변경 이력 추가</button>
+      </div>
+      <div id="adminCoveredList"><div class="loading">로딩 중...</div></div>
+    </div>
+    <div class="card">
+      <h3>비급여 제품 관리</h3>
+      <div class="actions" style="margin-bottom:12px;">
+        <button onclick="showAddProductModal('noncovered')" class="sec">+ 비급여 제품 추가</button>
+      </div>
+      <div id="adminNoncoveredList"><div class="loading">로딩 중...</div></div>
+    </div>
+  </div>
+
+  <!-- ===== 탭4: 설정 ===== -->
+  <div id="tab-config" class="tab-content">
+    <div class="card">
+      <h3>Supabase 연결 설정</h3>
+      <div class="small" style="margin-bottom:12px;">Supabase 프로젝트의 URL과 anon key를 입력하세요. 저장 후 새로고침하면 적용됩니다.</div>
+      <div style="margin-bottom:12px;">
+        <div class="small">Project URL</div>
+        <input id="cfgUrl" placeholder="https://xxxxxxxx.supabase.co" style="margin-top:6px;">
+      </div>
+      <div style="margin-bottom:12px;">
+        <div class="small">Anon Key</div>
+        <input id="cfgKey" placeholder="eyJhbGci..." style="margin-top:6px;">
+      </div>
+      <div class="actions">
+        <button onclick="saveConfig()">저장 후 새로고침</button>
+        <button onclick="testConnection()" class="sec">연결 테스트</button>
+      </div>
+      <div id="cfgStatus" style="margin-top:10px;"></div>
+    </div>
+    <div class="card">
+      <h3>Supabase 설정 방법</h3>
+      <div class="small" style="line-height:1.8;">
+        1. <b>supabase.com</b> → 프로젝트 선택<br>
+        2. 왼쪽 메뉴 <b>Settings → API</b> 클릭<br>
+        3. <b>Project URL</b> 복사 → 위 URL란 붙여넣기<br>
+        4. <b>anon public</b> 키 복사 → 위 Key란 붙여넣기<br>
+        5. 저장 버튼 클릭<br><br>
+        6. <b>SQL Editor</b>에서 <code>supabase_setup.sql</code> 파일 내용 실행
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 모달: 제품 추가 -->
+<div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:center;justify-content:center;">
+  <div style="background:#111827;border:1px solid #334155;border-radius:16px;padding:20px;width:90%;max-width:480px;max-height:90vh;overflow-y:auto;">
+    <h3 id="modalTitle">제품 추가</h3>
+    <div id="modalBody"></div>
+    <div class="actions" style="margin-top:16px;">
+      <button id="modalOk">저장</button>
+      <button onclick="closeModal()" class="sec">취소</button>
+    </div>
+  </div>
+</div>
+<div id="modal" style="display:none"></div>
+
+<script>
+// =============================================
+// Supabase 설정
+// =============================================
+let SUPABASE_URL = localStorage.getItem('sb_url') || '';
+let SUPABASE_KEY = localStorage.getItem('sb_key') || '';
+let supabase = null;
+
+function initSupabase() {
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
+    document.getElementById('configWarn').style.display = '';
+    return false;
+  }
+  try {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    document.getElementById('configWarn').style.display = 'none';
+    return true;
+  } catch(e) {
+    document.getElementById('configWarn').style.display = '';
+    return false;
+  }
+}
+
+function saveConfig() {
+  const url = document.getElementById('cfgUrl').value.trim();
+  const key = document.getElementById('cfgKey').value.trim();
+  if (!url || !key) { alert('URL과 KEY를 모두 입력해주세요.'); return; }
+  localStorage.setItem('sb_url', url);
+  localStorage.setItem('sb_key', key);
+  location.reload();
+}
+
+async function testConnection() {
+  const url = document.getElementById('cfgUrl').value.trim();
+  const key = document.getElementById('cfgKey').value.trim();
+  const el = document.getElementById('cfgStatus');
+  try {
+    const client = window.supabase.createClient(url, key);
+    const { error } = await client.from('hospitals').select('count').limit(1);
+    if (error) throw error;
+    el.innerHTML = '<span style="color:#22c55e;">✓ 연결 성공!</span>';
+  } catch(e) {
+    el.innerHTML = `<span style="color:#ef4444;">✗ 연결 실패: ${e.message}</span>`;
+  }
+}
+
+// =============================================
+// 상태
+// =============================================
+const st = {
+  items: [],
+  saved: [],
+  hospitals: [],
+  months: [],
+  coveredProducts: [],
+  noncoveredProducts: [],
+  rateHistory: [],
+  incentives: [],
+  filter: '',
+  monthFilter: 'ALL',
+  savedMonthFilter: 'ALL',
+};
+
+const $ = id => document.getElementById(id);
+const fmt = v => new Intl.NumberFormat('ko-KR', {maximumFractionDigits:0}).format(Number(v||0));
+const money = v => fmt(v) + '원';
+
+// =============================================
+// 탭 전환
+// =============================================
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+  if (name === 'admin') renderAdminLists();
+  if (name === 'monthly') renderMonthOverview();
+}
+
+// =============================================
+// 정산월 유틸
+// =============================================
+function normalizeMonth(v) {
+  if (!v) return '';
+  let s = String(v).trim();
+  if (/\d{4}-\d{2}-\d{2}T/.test(s)) {
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) {
+      const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+      return `${kst.getUTCFullYear()}-${String(kst.getUTCMonth()+1).padStart(2,'0')}`;
+    }
+  }
+  const m = s.match(/(\d{4})[-/.](\d{1,2})/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}`;
+  return s;
+}
+
+function nextMonthStr(m) {
+  const r = /^(\d{4})-(\d{2})$/.exec(m||'');
+  if (!r) return m;
+  let y = Number(r[1]), mo = Number(r[2]) + 1;
+  if (mo > 12) { mo = 1; y++; }
+  return `${y}-${String(mo).padStart(2,'0')}`;
+}
+
+function uniqSorted(arr) {
+  return Array.from(new Set((arr||[]).filter(Boolean))).sort();
+}
+
+// =============================================
+// 수수료율 조회 (기간별)
+// =============================================
+function getRateForMonth(productName, month) {
+  const history = st.rateHistory.filter(r => {
+    if (r.product_name !== productName) return false;
+    if (r.effective_from > month) return false;
+    if (r.effective_to && r.effective_to < month) return false;
+    return true;
+  });
+  if (!history.length) return 0;
+  // 가장 최근 적용 이력
+  history.sort((a,b) => b.effective_from.localeCompare(a.effective_from));
+  return Number(history[0].rate);
+}
+
+function getIncentiveForMonth(productName, month) {
+  return st.incentives
+    .filter(i => i.product_name === productName && i.effective_from <= month && i.effective_to >= month)
+    .reduce((sum, i) => sum + Number(i.extra_rate), 0);
+}
+
+// =============================================
+// 제품 목록 필터링 (정산월 기준)
+// =============================================
+function getActiveProducts(month) {
+  const m = month || currentMonth();
+  const covered = st.coveredProducts.filter(p => {
+    if (p.active_from && p.active_from > m) return false;
+    if (p.active_to && p.active_to < m) return false;
+    return true;
+  });
+  const noncovered = st.noncoveredProducts.filter(p => {
+    if (p.active_from && p.active_from > m) return false;
+    if (p.active_to && p.active_to < m) return false;
+    return true;
+  });
+  return { covered, noncovered };
+}
+
+// =============================================
+// 계산
+// =============================================
+function calc(item, month) {
+  const m = month || currentMonth();
+  if (item.type === 'noncovered' && item.method === 'B') {
+    const sales = (item.shippingPrice || 0) * item.quantity;
+    return { sales, fee: 0, supply: 0, vat: 0, rate: 0 };
+  }
+  if (item.type === 'noncovered' && item.method === 'A') {
+    const sales = item.unitPrice * item.quantity;
+    const fee = Number(item.settlementPerUnit || 0) * item.quantity;
+    const supply = fee / 1.1;
+    const vat = fee - supply;
+    const rate = sales ? (fee / sales) * 100 : 0;
+    return { sales, fee, supply, vat, rate };
+  }
+  // 급여
+  const baseRate = getRateForMonth(item.name, m);
+  const adjustedRate = baseRate === 0 ? 0 : baseRate + 0.01; // +1% (0% 제외)
+  const incentive = getIncentiveForMonth(item.name, m);
+  const manual = Number(item.extraRate || 0);
+  const totalRate = adjustedRate + incentive + manual;
+  const sales = item.unitPrice * item.quantity;
+  const fee = sales * totalRate;
+  const supply = fee / 1.1;
+  const vat = fee - supply;
+  return { sales, fee, supply, vat, rate: totalRate * 100 };
+}
+
+function currentTotals() {
+  let sales=0, fee=0, supply=0, vat=0;
+  st.items.forEach(item => {
+    const c = calc(item);
+    sales += c.sales; fee += c.fee; supply += c.supply; vat += c.vat;
+  });
+  return { sales, fee, supply, vat };
+}
+
+// =============================================
+// 현재 병원/월
+// =============================================
+function currentHospital() { return ($('hospitalInput').value || $('hospitalSelect').value || '').trim() || '병원'; }
+function currentMonth() { return normalizeMonth($('monthInput').value || $('monthSelect').value) || '2026-07'; }
+function titleText() { return `${currentHospital()} · ${currentMonth()} 정산`; }
+function keyText() { return `${currentHospital()}__${currentMonth()}`; }
+function updateHeader() { $('title').textContent = titleText(); }
+
+// =============================================
+// 제품 셀렉트 렌더링
+// =============================================
+function loadProducts() {
+  const m = currentMonth();
+  const q = (st.filter || '').toLowerCase();
+  const { covered, noncovered } = getActiveProducts(m);
+
+  const filteredCov = covered.filter(p => !q || p.name.toLowerCase().includes(q));
+  const filteredNon = noncovered.filter(p => !q || p.name.toLowerCase().includes(q));
+
+  const allProducts = [
+    ...filteredCov.map(p => ({ ...p, _type: 'covered' })),
+    ...filteredNon.map(p => ({ ...p, _type: 'noncovered' })),
+  ];
+
+  $('product').innerHTML = allProducts.map((p, i) => {
+    const rate = getRateForMonth(p.name, m);
+    const adjustedRate = rate === 0 ? 0 : rate + 0.01;
+    const incentive = getIncentiveForMonth(p.name, m);
+    const totalRate = (adjustedRate + incentive) * 100;
+    const label = p._type === 'noncovered'
+      ? `[비급여] ${p.name} / 약가 ${fmt(p.unit_price)}원 / 출하가 ${fmt(p.shipping_price)}원`
+      : `${p.name} / ${fmt(p.unit_price)}원 / ${totalRate.toFixed(0)}%`;
+    return `<option value="${i}" data-type="${p._type}">${label}</option>`;
+  }).join('');
+
+  toggleMethodRow();
+  updateRateInfo();
+  window._productList = allProducts;
+}
+
+function toggleMethodRow() {
+  const list = window._productList || [];
+  const idx = Number($('product').value);
+  const p = list[idx];
+  $('methodRow').style.display = (p && p._type === 'noncovered') ? '' : 'none';
+  updateRateInfo();
+}
+
+function updateRateInfo() {
+  const list = window._productList || [];
+  const idx = Number($('product').value);
+  const p = list[idx];
+  const el = $('rateInfo');
+  if (!p || p._type === 'noncovered') { el.innerHTML = ''; return; }
+  const m = currentMonth();
+  const base = getRateForMonth(p.name, m);
+  const adjustedBase = base === 0 ? 0 : base + 0.01;
+  const incentive = getIncentiveForMonth(p.name, m);
+  const total = (adjustedBase + incentive) * 100;
+  let info = `<div class="small" style="color:#94a3b8;">`;
+  info += `${m} 기준 수수료율: <b style="color:#38bdf8;">${total.toFixed(0)}%</b>`;
+  if (incentive > 0) info += ` (기본 ${(adjustedBase*100).toFixed(0)}% + 인센티브 ${(incentive*100).toFixed(0)}%)`;
+  info += `</div>`;
+  el.innerHTML = info;
+}
+
+// =============================================
+// 품목 추가
+// =============================================
+function addItemFn() {
+  const list = window._productList || [];
+  const idx = Number($('product').value);
+  const qty = Number($('qty').value || 0);
+  const p = list[idx];
+  if (!p || qty <= 0) return;
+
+  let item;
+  if (p._type === 'noncovered') {
+    const method = $('method').value || 'A';
+    if (method === 'B') {
+      item = { name: p.name, unitPrice: p.unit_price, code: p.code, ingredient: p.ingredient,
+        indication: p.indication, quantity: qty, type: 'noncovered', method: 'B',
+        shippingPrice: p.shipping_price, rate: 0, _k: String(Date.now()) + Math.random() };
+    } else {
+      const suggested = Math.max(0, p.unit_price - (p.shipping_price || 0));
+      item = { name: p.name, unitPrice: p.unit_price, code: p.code, ingredient: p.ingredient,
+        indication: p.indication, quantity: qty, type: 'noncovered', method: 'A',
+        shippingPrice: p.shipping_price, settlementPerUnit: suggested, _k: String(Date.now()) + Math.random() };
+    }
+  } else {
+    item = { ...p, unitPrice: p.unit_price, quantity: qty, extraRate: 0, type: 'covered',
+      _k: String(Date.now()) + Math.random() };
+  }
+  st.items.push(item);
+  st.filter = ''; $('search').value = ''; $('qty').value = 1;
+  loadProducts(); render();
+}
+
+function removeItem(k) { st.items = st.items.filter(x => x._k !== k); render(); }
+function setQuantity(k, v) { st.items = st.items.map(x => x._k===k ? {...x, quantity: Math.max(0,Number(v))} : x); render(); }
+function setExtraRate(k, v) { st.items = st.items.map(x => x._k===k ? {...x, extraRate: Number(v)} : x); render(); }
+function setSettlementPerUnit(k, v) { st.items = st.items.map(x => x._k===k ? {...x, settlementPerUnit: Number(v)} : x); render(); }
+window.removeItem = removeItem; window.setQuantity = setQuantity; window.setExtraRate = setExtraRate; window.setSettlementPerUnit = setSettlementPerUnit;
+
+// =============================================
+// 렌더링
+// =============================================
+function render() {
+  const m = currentMonth();
+  if (!st.items.length) {
+    $('items').innerHTML = '<div class="small">아직 추가된 품목이 없습니다.</div>';
+  } else {
+    $('items').innerHTML = st.items.map(item => {
+      const c = calc(item, m);
+      const isCov = item.type === 'covered';
+      const isNonA = item.type === 'noncovered' && item.method === 'A';
+      const isNonB = item.type === 'noncovered' && item.method === 'B';
+      const badge = isNonB ? '[비급여·방식B] ' : (isNonA ? '[비급여·방식A] ' : '');
+      let rateBreakdown;
+      if (isNonB) rateBreakdown = `수수료 없음 (출하가 ${fmt(item.shippingPrice||0)}원)`;
+      else if (isNonA) rateBreakdown = `1개당 정산 ${fmt(item.settlementPerUnit||0)}원`;
+      else rateBreakdown = `수수료 ${c.rate.toFixed(1)}%`;
+      const extraInput = isCov ? `<div><div class="small" style="margin-bottom:6px;">추가 수수료(%)</div><input type="number" step="0.5" value="${item.extraRate||0}" onchange="setExtraRate('${item._k}',this.value)" style="text-align:center;"/></div>` : '';
+      const settleInput = isNonA ? `<div><div class="small" style="margin-bottom:6px;">1개당 정산금액(원)</div><input type="number" min="0" value="${item.settlementPerUnit||0}" onchange="setSettlementPerUnit('${item._k}',this.value)" style="text-align:center;"/></div>` : '';
+      return `<div class="item">
+        <div style="font-weight:800;font-size:16px">${badge}${item.name}</div>
+        <div class="small">${item.indication||''} · 수량 ${fmt(item.quantity)} · 단가 ${fmt(item.unitPrice)}원 · ${rateBreakdown}</div>
+        <div style="margin:10px 0 6px;"><div class="grid g2"><div><div class="small" style="margin-bottom:6px;">수량 수정</div><input type="number" min="0" value="${item.quantity}" onchange="setQuantity('${item._k}',this.value)" style="text-align:center;"/></div>${extraInput}${settleInput}</div></div>
+        <div class="metric"><span>판매금액</span><b>${money(c.sales)}</b></div>
+        <div class="metric"><span>수수료(부가세 포함)</span><b>${money(c.fee)}</b></div>
+        <div class="metric"><span>공급가액</span><b>${money(c.supply)}</b></div>
+        <div class="metric"><span>부가세</span><b>${money(c.vat)}</b></div>
+        <div class="actions" style="margin-top:10px;"><button class="del" onclick="removeItem('${item._k}')">삭제</button></div>
+      </div>`;
+    }).join('');
+  }
+
+  const t = currentTotals();
+  $('ts').textContent = money(t.sales); $('tf').textContent = money(t.fee);
+  $('tp').textContent = money(t.supply); $('tv').textContent = money(t.vat);
+  $('dr').textContent = t.sales ? ((t.fee/t.sales)*100).toFixed(2)+'%' : '0%';
+  $('rr').textContent = t.sales ? ((t.supply/t.sales)*100).toFixed(2)+'%' : '0%';
+  $('summaryBox').innerHTML = `<div class="item">
+    <div style="font-weight:800;font-size:16px">신풍제약 합계</div>
+    <div class="metric"><span>총 판매금액</span><b>${money(t.sales)}</b></div>
+    <div class="metric"><span>총 수수료(부가세 포함)</span><b>${money(t.fee)}</b></div>
+    <div class="metric"><span>총 공급가액</span><b>${money(t.supply)}</b></div>
+    <div class="metric"><span>총 부가세</span><b>${money(t.vat)}</b></div>
+  </div>`;
+  updateHeader();
+}
+
+// =============================================
+// 병원/월 선택기 렌더링
+// =============================================
+function renderHospitalMonthSelectors() {
+  $('hospitalSelect').innerHTML = st.hospitals.map(h => `<option value="${h}">${h}</option>`).join('');
+  $('monthSelect').innerHTML = st.months.map(m => `<option value="${m}">${m}</option>`).join('');
+}
+
+function renderSavedMonthFilter() {
+  const months = uniqSorted(st.saved.map(x => x.month).filter(Boolean));
+  $('savedMonthFilter').innerHTML = ['<option value="ALL">전체</option>'].concat(
+    months.map(m => `<option value="${m}" ${st.savedMonthFilter===m?'selected':''}>${m}</option>`)
+  ).join('');
+}
+
+function renderMonthFilter() {
+  const months = uniqSorted([...st.months, ...st.saved.map(x=>x.month).filter(Boolean)]);
+  $('monthFilter').innerHTML = ['<option value="ALL">전체</option>'].concat(
+    months.map(m => `<option value="${m}" ${st.monthFilter===m?'selected':''}>${m}</option>`)
+  ).join('');
+}
+
+function renderSaved() {
+  const list = st.savedMonthFilter === 'ALL' ? st.saved : st.saved.filter(x => x.month === st.savedMonthFilter);
+  if (!list.length) { $('saved').innerHTML = '<div class="small">저장된 정산이 없습니다.</div>'; return; }
+  $('saved').innerHTML = list.map(item => `
+    <div class="item">
+      <div style="font-weight:800">${item.title}</div>
+      <div class="small">${(item.items_json||[]).length}개 품목 · ${(item.saved_at||'').slice(0,16).replace('T',' ')}</div>
+      <div class="actions" style="margin-top:10px;">
+        <button onclick="loadSettlement('${item.key}')">불러오기</button>
+        <button class="sec" onclick="duplicateSettlement('${item.key}')">복사</button>
+        <button class="alt" onclick="copyToNextMonth('${item.key}')">다음달 복사</button>
+        <button class="del" onclick="deleteSettlement('${item.key}')">삭제</button>
+      </div>
+    </div>`).join('');
+}
+
+function renderMonthOverview() {
+  const rows = st.monthFilter === 'ALL' ? st.saved : st.saved.filter(x => x.month === st.monthFilter);
+  if (!rows.length) { $('monthOverview').innerHTML = '<div class="small">선택한 월에 저장된 병원이 없습니다.</div>'; return; }
+  let gs=0, gf=0, gp=0, gv=0;
+  const blocks = rows.map(row => {
+    let s=0,f=0,p=0,v=0;
+    const items = row.items_json || [];
+    const detailRows = items.map(item => {
+      const c = calc(item, row.month);
+      s+=c.sales; f+=c.fee; p+=c.supply; v+=c.vat;
+      return `<tr><td>${item.name}</td><td>${item.quantity}</td><td>${fmt(item.unitPrice)}원</td><td>${c.rate.toFixed(0)}%</td><td>${money(c.sales)}</td><td>${money(c.fee)}</td><td>${money(c.supply)}</td><td>${money(c.vat)}</td></tr>`;
+    }).join('');
+    gs+=s; gf+=f; gp+=p; gv+=v;
+    return `<div class="item" style="margin-bottom:14px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div><div style="font-size:18px;font-weight:800;">${row.hospital}</div><div class="small">정산월 ${row.month} · ${items.length}개 품목</div></div>
+        <button onclick="loadSettlement('${row.key}')" style="width:auto;padding:8px 16px;">열기</button>
+      </div>
+      <div class="grid g2" style="margin-top:10px;">
+        <div class="summary">
+          <div class="metric"><span>판매금액</span><b>${money(s)}</b></div>
+          <div class="metric"><span>수수료</span><b>${money(f)}</b></div>
+          <div class="metric"><span>공급가액</span><b>${money(p)}</b></div>
+          <div class="metric"><span>부가세</span><b>${money(v)}</b></div>
+        </div>
+      </div>
+      <div class="table-wrap" style="margin-top:10px;">
+        <table><thead><tr><th>제품명</th><th>수량</th><th>단가</th><th>수수료율</th><th>판매금액</th><th>수수료</th><th>공급가액</th><th>부가세</th></tr></thead>
+        <tbody>${detailRows||'<tr><td colspan="8">품목 없음</td></tr>'}</tbody></table>
+      </div>
+    </div>`;
+  }).join('');
+  $('monthOverview').innerHTML = `
+    <div class="summary" style="margin-bottom:12px;">
+      <div class="small">선택 월 전체 요약</div>
+      <div class="metric"><span>병원 수</span><b>${rows.length}처</b></div>
+      <div class="metric"><span>총 판매금액</span><b>${money(gs)}</b></div>
+      <div class="metric"><span>총 수수료</span><b>${money(gf)}</b></div>
+      <div class="metric"><span>총 공급가액</span><b>${money(gp)}</b></div>
+      <div class="metric"><span>총 부가세</span><b>${money(gv)}</b></div>
+    </div>${blocks}`;
+}
+
+// =============================================
+// Supabase CRUD
+// =============================================
+async function loadAll() {
+  if (!supabase) return;
+  await Promise.all([loadCatalog(), loadMeta(), loadSaved()]);
+  loadProducts();
+  renderHospitalMonthSelectors();
+  renderSavedMonthFilter();
+  renderSaved();
+  renderMonthFilter();
+  updateHeader();
+  render();
+}
+
+async function loadCatalog() {
+  if (!supabase) return;
+  const [{ data: cov }, { data: non }, { data: rates }, { data: inc }] = await Promise.all([
+    supabase.from('products_covered').select('*').order('name'),
+    supabase.from('products_noncovered').select('*').order('name'),
+    supabase.from('rate_history').select('*'),
+    supabase.from('incentives').select('*'),
+  ]);
+  st.coveredProducts = cov || [];
+  st.noncoveredProducts = non || [];
+  st.rateHistory = rates || [];
+  st.incentives = inc || [];
+}
+
+async function loadMeta() {
+  if (!supabase) return;
+  const [{ data: hosp }, { data: months }] = await Promise.all([
+    supabase.from('hospitals').select('name').order('name'),
+    supabase.from('months').select('month').order('month'),
+  ]);
+  st.hospitals = (hosp||[]).map(x=>x.name);
+  st.months = (months||[]).map(x=>x.month);
+  if (!st.hospitals.length) st.hospitals = ['병원'];
+  if (!st.months.length) st.months = ['2026-07'];
+}
+
+async function loadSaved() {
+  if (!supabase) return;
+  const { data } = await supabase.from('settlements').select('*').order('saved_at', { ascending: false });
+  st.saved = (data||[]).map(r => ({
+    ...r,
+    month: normalizeMonth(r.month),
+    title: `${r.hospital} · ${normalizeMonth(r.month)} 정산`,
+    items_json: typeof r.items_json === 'string' ? JSON.parse(r.items_json) : (r.items_json || []),
+  }));
+}
+
+async function saveCurrent() {
+  if (!supabase) { alert('Supabase 설정을 먼저 해주세요.'); return; }
+  await addHospitalFn(); await addMonthFn();
+  const t = currentTotals();
+  const payload = {
+    key: keyText(), hospital: currentHospital(), month: currentMonth(),
+    items_json: st.items, total_sales: Math.round(t.sales), total_fee: Math.round(t.fee),
+    total_supply: Math.round(t.supply), total_vat: Math.round(t.vat), saved_at: new Date().toISOString(),
+  };
+  const { error } = await supabase.from('settlements').upsert(payload, { onConflict: 'key' });
+  if (error) { alert('저장 실패: ' + error.message); return; }
+  await loadSaved();
+  renderSavedMonthFilter(); renderSaved(); renderMonthFilter(); renderMonthOverview();
+  alert('저장되었습니다!');
+}
+
+async function addHospitalFn() {
+  const name = currentHospital();
+  if (!name || name === '병원') return;
+  if (!st.hospitals.includes(name)) {
+    if (supabase) await supabase.from('hospitals').upsert({ name }, { onConflict: 'name' });
+    st.hospitals = uniqSorted([...st.hospitals, name]);
+    renderHospitalMonthSelectors(); $('hospitalSelect').value = name;
+  }
+}
+
+async function addMonthFn() {
+  const month = normalizeMonth($('monthInput').value || $('monthSelect').value);
+  if (!month) return;
+  if (!st.months.includes(month)) {
+    if (supabase) await supabase.from('months').upsert({ month }, { onConflict: 'month' });
+    st.months = uniqSorted([...st.months, month]);
+    renderHospitalMonthSelectors(); $('monthSelect').value = month;
+    renderMonthFilter(); renderMonthOverview();
+  }
+}
+
+async function deleteSettlement(key) {
+  if (!confirm('삭제하시겠어요?')) return;
+  if (supabase) await supabase.from('settlements').delete().eq('key', key);
+  st.saved = st.saved.filter(x => x.key !== key);
+  renderSavedMonthFilter(); renderSaved(); renderMonthFilter(); renderMonthOverview();
+}
+
+function loadSettlement(key) {
+  const found = st.saved.find(x => x.key === key); if (!found) return;
+  $('hospitalInput').value = found.hospital; $('monthInput').value = found.month;
+  st.items = (found.items_json||[]).map(x => ({...x, _k: String(Date.now()) + Math.random()}));
+  if (!st.hospitals.includes(found.hospital)) st.hospitals = uniqSorted([...st.hospitals, found.hospital]);
+  if (!st.months.includes(found.month)) st.months = uniqSorted([...st.months, found.month]);
+  renderHospitalMonthSelectors(); $('hospitalSelect').value = found.hospital; $('monthSelect').value = found.month;
+  loadProducts(); updateHeader(); render();
+  switchTabDirect('settlement');
+}
+
+function duplicateSettlement(key) {
+  const found = st.saved.find(x => x.key === key); if (!found) return;
+  $('hospitalInput').value = found.hospital; $('monthInput').value = found.month + '-복사'; updateHeader();
+  st.items = (found.items_json||[]).map(x => ({...x, _k: String(Date.now()) + Math.random()})); render();
+}
+
+function copyToNextMonth(key) {
+  const found = st.saved.find(x => x.key === key); if (!found) return;
+  const next = nextMonthStr(found.month);
+  $('hospitalInput').value = found.hospital; $('monthInput').value = next;
+  st.items = (found.items_json||[]).map(x => ({...x, _k: String(Date.now()) + Math.random()}));
+  loadProducts(); updateHeader(); render();
+  alert(`${next} 정산으로 복사했습니다. 수량 확인 후 저장하세요.`);
+}
+
+function switchTabDirect(name) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  document.querySelector(`.tab-btn[onclick="switchTab('${name}')"]`).classList.add('active');
+}
+
+window.loadSettlement = loadSettlement;
+window.duplicateSettlement = duplicateSettlement;
+window.copyToNextMonth = copyToNextMonth;
+window.deleteSettlement = deleteSettlement;
+
+// =============================================
+// 제품 관리 탭
+// =============================================
+function renderAdminLists() {
+  const m = currentMonth();
+  // 급여
+  const covHtml = st.coveredProducts.map(p => {
+    const rates = st.rateHistory.filter(r => r.product_name === p.name).sort((a,b) => a.effective_from.localeCompare(b.effective_from));
+    const currentRate = getRateForMonth(p.name, m);
+    const isExpired = p.active_to && p.active_to < m;
+    const isNew = p.active_from && p.active_from > m;
+    let badges = '';
+    if (isExpired) badges += `<span class="badge badge-end">종료</span>`;
+    if (isNew) badges += `<span class="badge badge-new">미시작</span>`;
+    const rateHistory = rates.map(r =>
+      `<span class="small">${r.effective_from}~${r.effective_to||'현재'}: <b>${(Number(r.rate)*100).toFixed(0)}%</b></span>`
+    ).join(' | ');
+    return `<div class="item">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-weight:700;">${p.name}${badges}</div>
+          <div class="small">${p.indication||''} · 단가 ${fmt(p.unit_price)}원 · 현재요율 ${((currentRate===0?0:currentRate+0.01)*100).toFixed(0)}%</div>
+          <div class="small" style="margin-top:4px;">적용기간: ${p.active_from||'-'} ~ ${p.active_to||'계속'}</div>
+          <div class="small" style="margin-top:2px;">요율이력: ${rateHistory||'-'}</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+          <button onclick="editProductEnd('covered','${p.name}','${p.active_to||''}')" class="sec" style="width:auto;padding:6px 10px;font-size:12px;">종료월 설정</button>
+          <button onclick="showAddRateModalFor('${p.name.replace(/'/g,"\\'")}')" class="sec" style="width:auto;padding:6px 10px;font-size:12px;">요율변경</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  $('adminCoveredList').innerHTML = covHtml || '<div class="small">제품 없음</div>';
+
+  // 비급여
+  const nonHtml = st.noncoveredProducts.map(p => {
+    const isExpired = p.active_to && p.active_to < m;
+    const isNew = p.active_from && p.active_from > m;
+    let badges = '';
+    if (isExpired) badges += `<span class="badge badge-end">종료</span>`;
+    if (isNew) badges += `<span class="badge badge-new">미시작</span>`;
+    return `<div class="item">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-weight:700;">${p.name}${badges}</div>
+          <div class="small">${p.indication||''} · 약가 ${fmt(p.unit_price)}원 · 출하가 ${fmt(p.shipping_price)}원</div>
+          <div class="small" style="margin-top:4px;">적용기간: ${p.active_from||'-'} ~ ${p.active_to||'계속'}</div>
+        </div>
+        <button onclick="editProductEnd('noncovered','${p.name}','${p.active_to||''}')" class="sec" style="width:auto;padding:6px 10px;font-size:12px;">종료월 설정</button>
+      </div>
+    </div>`;
+  }).join('');
+  $('adminNoncoveredList').innerHTML = nonHtml || '<div class="small">제품 없음</div>';
+}
+
+// 모달
+let _modalOkFn = null;
+function openModal(title, bodyHtml, okFn) {
+  $('modalTitle').textContent = title;
+  $('modalBody').innerHTML = bodyHtml;
+  _modalOkFn = okFn;
+  $('modal').style.display = 'flex';
+  $('modalOk').onclick = () => { if(_modalOkFn) _modalOkFn(); };
+}
+function closeModal() { $('modal').style.display = 'none'; }
+window.closeModal = closeModal;
+
+async function editProductEnd(type, name, currentEnd) {
+  openModal(`종료월 설정 — ${name}`,
+    `<div class="small" style="margin-bottom:8px;">이 월이 지나면 카탈로그에서 자동으로 숨겨집니다. 비워두면 계속 유지됩니다.</div>
+     <input id="mEndMonth" placeholder="예: 2026-12" value="${currentEnd}">`,
+    async () => {
+      const val = ($('mEndMonth').value||'').trim();
+      const table = type === 'covered' ? 'products_covered' : 'products_noncovered';
+      const { error } = await supabase.from(table).update({ active_to: val || null }).eq('name', name);
+      if (error) { alert('오류: ' + error.message); return; }
+      await loadCatalog(); closeModal(); renderAdminLists();
+      alert('저장되었습니다.');
+    }
+  );
+}
+window.editProductEnd = editProductEnd;
+
+async function showAddRateModalFor(name) {
+  openModal(`수수료율 변경 — ${name}`,
+    `<div class="small" style="margin-bottom:8px;">새 요율이 적용되는 시작월과 종료월을 입력하세요.</div>
+     <div style="margin-bottom:8px;"><div class="small">적용 시작월</div><input id="mRateFrom" placeholder="2026-07"></div>
+     <div style="margin-bottom:8px;"><div class="small">적용 종료월 (없으면 비워두기)</div><input id="mRateTo" placeholder=""></div>
+     <div><div class="small">새 수수료율 (%)</div><input id="mRateVal" type="number" step="1" placeholder="예: 45"></div>`,
+    async () => {
+      const from = ($('mRateFrom').value||'').trim();
+      const to = ($('mRateTo').value||'').trim() || null;
+      const rate = Number($('mRateVal').value||0) / 100;
+      if (!from || !rate) { alert('시작월과 요율을 입력하세요.'); return; }
+      const { error } = await supabase.from('rate_history').insert({ product_name: name, rate, effective_from: from, effective_to: to });
+      if (error) { alert('오류: ' + error.message); return; }
+      await loadCatalog(); closeModal(); renderAdminLists(); loadProducts();
+      alert('요율 변경 이력이 추가되었습니다.');
+    }
+  );
+}
+window.showAddRateModalFor = showAddRateModalFor;
+window.showAddRateModal = () => {
+  openModal('수수료율 변경 이력 추가',
+    `<div style="margin-bottom:8px;"><div class="small">제품명</div><input id="mRateName" placeholder="제품명 정확히 입력"></div>
+     <div style="margin-bottom:8px;"><div class="small">적용 시작월</div><input id="mRateFrom" placeholder="2026-07"></div>
+     <div style="margin-bottom:8px;"><div class="small">적용 종료월 (없으면 비워두기)</div><input id="mRateTo" placeholder=""></div>
+     <div><div class="small">수수료율 (%)</div><input id="mRateVal" type="number" step="1" placeholder="예: 45"></div>`,
+    async () => {
+      const name = ($('mRateName').value||'').trim();
+      const from = ($('mRateFrom').value||'').trim();
+      const to = ($('mRateTo').value||'').trim() || null;
+      const rate = Number($('mRateVal').value||0) / 100;
+      if (!name || !from || !rate) { alert('제품명, 시작월, 요율 모두 입력하세요.'); return; }
+      const { error } = await supabase.from('rate_history').insert({ product_name: name, rate, effective_from: from, effective_to: to });
+      if (error) { alert('오류: ' + error.message); return; }
+      await loadCatalog(); closeModal(); renderAdminLists(); loadProducts();
+      alert('추가되었습니다.');
+    }
+  );
+};
+window.showAddProductModal = (type) => {
+  const isNon = type === 'noncovered';
+  openModal(isNon ? '비급여 제품 추가' : '급여 제품 추가',
+    `<div style="margin-bottom:8px;"><div class="small">제품명</div><input id="mPName" placeholder="제품명"></div>
+     <div style="margin-bottom:8px;"><div class="small">적응증</div><input id="mPInd" placeholder="ENT, 당뇨 등"></div>
+     <div style="margin-bottom:8px;"><div class="small">보험코드</div><input id="mPCode" placeholder="648500000"></div>
+     <div style="margin-bottom:8px;"><div class="small">성분명</div><input id="mPIng" placeholder="성분명"></div>
+     <div style="margin-bottom:8px;"><div class="small">약가(원)</div><input id="mPPrice" type="number" placeholder="0"></div>
+     ${isNon ? '<div style="margin-bottom:8px;"><div class="small">출하가(원)</div><input id="mPShip" type="number" placeholder="0"></div>' : '<div style="margin-bottom:8px;"><div class="small">수수료율(%)</div><input id="mPRate" type="number" step="1" placeholder="45"></div>'}
+     <div style="margin-bottom:8px;"><div class="small">적용 시작월</div><input id="mPFrom" value="2026-07"></div>`,
+    async () => {
+      const name = ($('mPName').value||'').trim();
+      if (!name) { alert('제품명을 입력하세요.'); return; }
+      const payload = {
+        name, indication: ($('mPInd').value||'').trim(),
+        code: ($('mPCode').value||'').trim(), ingredient: ($('mPIng').value||'').trim(),
+        unit_price: Number($('mPPrice').value||0), active_from: ($('mPFrom').value||'2026-07').trim(),
+      };
+      let error;
+      if (isNon) {
+        payload.shipping_price = Number($('mPShip')?.value||0);
+        ({ error } = await supabase.from('products_noncovered').insert(payload));
+      } else {
+        const rate = Number($('mPRate')?.value||0) / 100;
+        ({ error } = await supabase.from('products_covered').insert(payload));
+        if (!error && rate > 0) {
+          await supabase.from('rate_history').insert({ product_name: name, rate, effective_from: payload.active_from, effective_to: null });
+        }
+      }
+      if (error) { alert('오류: ' + error.message); return; }
+      await loadCatalog(); closeModal(); renderAdminLists(); loadProducts();
+      alert('추가되었습니다.');
+    }
+  );
+};
+
+// =============================================
+// CSV / PDF
+// =============================================
+function buildCsv(rows) {
+  return rows.map(row => row.map(cell => `"${String(cell??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+}
+function triggerCsv(filename, rows) {
+  const blob = new Blob(["﻿" + buildCsv(rows)], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+function downloadCsv() {
+  const t = currentTotals();
+  const rows = [['병원명', currentHospital()], ['정산월', currentMonth()], [],
+    ['제품명','적응증','수량','단가','수수료율(%)','판매금액','수수료','공급가액','부가세']];
+  st.items.forEach(item => {
+    const c = calc(item);
+    rows.push([item.name,item.indication||'',item.quantity,item.unitPrice,c.rate.toFixed(1),Math.round(c.sales),Math.round(c.fee),Math.round(c.supply),Math.round(c.vat)]);
+  });
+  rows.push([]); rows.push(['합계','','','','',Math.round(t.sales),Math.round(t.fee),Math.round(t.supply),Math.round(t.vat)]);
+  triggerCsv(`${currentHospital()}_${currentMonth()}_정산.csv`, rows);
+}
+function openPdf() {
+  const t = currentTotals();
+  const itemRows = st.items.map(item => { const c=calc(item); return `<tr><td>${item.name}</td><td>${item.quantity}</td><td>${fmt(item.unitPrice)}원</td><td>${c.rate.toFixed(0)}%</td><td>${money(c.sales)}</td><td>${money(c.fee)}</td><td>${money(c.supply)}</td><td>${money(c.vat)}</td></tr>`; }).join('');
+  const popup = window.open('','_blank'); if(!popup) return alert('팝업 차단됨');
+  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>정산서</title>
+  <style>@page{size:A4 portrait;margin:10mm}body{font-family:Arial,sans-serif;margin:20px;color:#111}
+  h1{margin:0 0 6px;font-size:22px}.sub{color:#555;font-size:12px;margin-bottom:12px}
+  .top-actions{margin-bottom:14px}.top-actions button{padding:10px;border:1px solid #bbb;background:#f7f7f7;border-radius:8px;cursor:pointer}
+  .sb{border:1px solid #ddd;border-radius:8px;padding:10px;margin:12px 0}.m{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee;font-size:12px}.m:last-child{border-bottom:none}
+  table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #ddd;padding:6px 4px;font-size:10px;word-break:break-word}th{background:#f5f5f5}
+  @media print{.top-actions{display:none}body{margin:0}}</style></head><body>
+  <div class="top-actions"><button onclick="window.print()">인쇄 / PDF 저장</button></div>
+  <h1>신풍제약 정산서</h1><div class="sub">${currentHospital()} · ${currentMonth()}</div>
+  <div class="sb"><div class="m"><span>총 판매금액</span><strong>${money(t.sales)}</strong></div><div class="m"><span>총 수수료</span><strong>${money(t.fee)}</strong></div><div class="m"><span>공급가액</span><strong>${money(t.supply)}</strong></div><div class="m"><span>부가세</span><strong>${money(t.vat)}</strong></div></div>
+  <table><thead><tr><th>제품명</th><th>수량</th><th>단가</th><th>수수료율</th><th>판매금액</th><th>수수료</th><th>공급가액</th><th>부가세</th></tr></thead>
+  <tbody>${itemRows||'<tr><td colspan="8">없음</td></tr>'}</tbody></table></body></html>`);
+  popup.document.close();
+}
+function downloadMonthCsv() {
+  const rows = st.monthFilter==='ALL' ? st.saved : st.saved.filter(x=>x.month===st.monthFilter);
+  if (!rows.length) return alert('데이터 없음');
+  const csvRows = [['정산월','병원명','제품명','수량','단가','수수료율(%)','판매금액','수수료','공급가액','부가세']];
+  rows.forEach(row => (row.items_json||[]).forEach(item => {
+    const c = calc(item, row.month);
+    csvRows.push([row.month,row.hospital,item.name,item.quantity,item.unitPrice,c.rate.toFixed(1),Math.round(c.sales),Math.round(c.fee),Math.round(c.supply),Math.round(c.vat)]);
+  }));
+  triggerCsv(`${st.monthFilter==='ALL'?'전체':st.monthFilter}_전체병원.csv`, csvRows);
+}
+function openMonthPdf() {
+  const rows = st.monthFilter==='ALL' ? st.saved : st.saved.filter(x=>x.month===st.monthFilter);
+  if (!rows.length) return alert('데이터 없음');
+  let gs=0,gf=0,gp=0,gv=0;
+  const blocks = rows.map(row => {
+    let s=0,f=0,p=0,v=0;
+    const dr = (row.items_json||[]).map(item => { const c=calc(item,row.month); s+=c.sales;f+=c.fee;p+=c.supply;v+=c.vat; return `<tr><td>${item.name}</td><td>${item.quantity}</td><td>${fmt(item.unitPrice)}원</td><td>${c.rate.toFixed(0)}%</td><td>${money(c.sales)}</td><td>${money(c.fee)}</td><td>${money(c.supply)}</td><td>${money(c.vat)}</td></tr>`; }).join('');
+    gs+=s;gf+=f;gp+=p;gv+=v;
+    return `<div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:12px;page-break-inside:avoid;"><h2>${row.hospital} (${row.month})</h2><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px;">${[['판매',s],['수수료',f],['공급가',p],['부가세',v]].map(([l,val])=>`<div style="border:1px solid #eee;padding:6px;border-radius:6px;font-size:11px;"><span style="color:#666;">${l}</span><br><strong>${money(val)}</strong></div>`).join('')}</div><table style="width:100%;border-collapse:collapse;"><thead><tr>${['제품명','수량','단가','요율','판매금액','수수료','공급가액','부가세'].map(h=>`<th style="border:1px solid #ddd;padding:5px;background:#f5f5f5;font-size:10px;">${h}</th>`).join('')}</tr></thead><tbody>${dr}</tbody></table></div>`;
+  }).join('');
+  const popup = window.open('','_blank'); if(!popup) return alert('팝업 차단됨');
+  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>월 전체 정산</title><style>@page{size:A4;margin:10mm}body{font-family:Arial,sans-serif;margin:20px;color:#111;font-size:12px}h1{font-size:20px}h2{font-size:15px;margin:0 0 6px}table td,table th{border:1px solid #ddd;padding:5px;font-size:10px;word-break:break-word}.top{margin-bottom:12px}.top button{padding:8px;border:1px solid #bbb;background:#f7f7f7;border-radius:6px;cursor:pointer}@media print{.top{display:none}body{margin:0}}</style></head><body><div class="top"><button onclick="window.print()">인쇄/PDF</button></div><h1>신풍제약 월 전체 정산 — ${st.monthFilter==='ALL'?'전체':st.monthFilter}</h1><p>병원 ${rows.length}처 · 총판매 ${money(gs)} · 총수수료 ${money(gf)}</p>${blocks}</body></html>`);
+  popup.document.close();
+}
+
+// =============================================
+// 이벤트 바인딩
+// =============================================
+$('addItem').addEventListener('click', addItemFn);
+$('resetItems').addEventListener('click', () => { st.items=[]; render(); });
+$('save').addEventListener('click', saveCurrent);
+$('showMonth').addEventListener('click', () => {
+  const m = currentMonth();
+  if (m) { st.monthFilter = m; $('monthFilter').value = m; }
+  renderMonthOverview(); switchTabDirect('monthly');
+});
+$('downloadCsv').addEventListener('click', downloadCsv);
+$('downloadPdf').addEventListener('click', openPdf);
+$('downloadMonthCsv').addEventListener('click', downloadMonthCsv);
+$('downloadMonthPdf').addEventListener('click', openMonthPdf);
+$('addHospital').addEventListener('click', addHospitalFn);
+$('addMonth').addEventListener('click', addMonthFn);
+$('hospitalSelect').addEventListener('change', e => { $('hospitalInput').value = e.target.value; updateHeader(); loadProducts(); });
+$('monthSelect').addEventListener('change', e => { $('monthInput').value = e.target.value; updateHeader(); loadProducts(); render(); });
+$('hospitalInput').addEventListener('input', updateHeader);
+$('monthInput').addEventListener('input', () => { updateHeader(); loadProducts(); render(); });
+$('search').addEventListener('input', e => { st.filter = e.target.value||''; loadProducts(); });
+$('product').addEventListener('change', toggleMethodRow);
+$('savedMonthFilter').addEventListener('change', e => { st.savedMonthFilter = e.target.value; renderSaved(); });
+$('monthFilter').addEventListener('change', e => { st.monthFilter = e.target.value; renderMonthOverview(); });
+
+// 설정 탭 초기값
+$('cfgUrl').value = SUPABASE_URL;
+$('cfgKey').value = SUPABASE_KEY;
+
+// =============================================
+// 초기화
+// =============================================
+async function initApp() {
+  if (initSupabase()) {
+    await loadAll();
+  } else {
+    // Supabase 미설정 시 기본 상태
+    st.hospitals = ['병원']; st.months = ['2026-07'];
+    renderHospitalMonthSelectors(); updateHeader(); render();
+  }
+}
+initApp();
+</script>
+</body>
+</html>      <div class="metric"><span>표면 수수료율</span><b id="dr">0%</b></div>
       <div class="metric"><span>실질 수수료율</span><b id="rr">0%</b></div>
     </div>
   </div>
