@@ -50,10 +50,10 @@ button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
 
   <!-- 탭 바 -->
   <div class="tab-bar">
-    <button class="tab-btn active" onclick="switchTab('settlement')">정산 입력</button>
-    <button class="tab-btn" onclick="switchTab('monthly')">월별 현황</button>
-    <button class="tab-btn" onclick="switchTab('admin')">제품 관리</button>
-    <button class="tab-btn" onclick="switchTab('config')">설정</button>
+    <button class="tab-btn active" onclick="switchTab('settlement', this)">정산 입력</button>
+    <button class="tab-btn" onclick="switchTab('monthly', this)">월별 현황</button>
+    <button class="tab-btn" onclick="switchTab('admin', this)">제품 관리</button>
+    <button class="tab-btn" onclick="switchTab('config', this)">설정</button>
   </div>
 
   <!-- ===== 탭1: 정산 입력 ===== -->
@@ -282,11 +282,11 @@ const money = v => fmt(v) + '원';
 // =============================================
 // 탭 전환
 // =============================================
-function switchTab(name) {
+function switchTab(name, btn) {
   document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
-  event.target.classList.add('active');
+  if (btn) btn.classList.add('active');
   if (name === 'admin') renderAdminLists();
   if (name === 'monthly') renderMonthOverview();
 }
