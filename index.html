@@ -218,7 +218,7 @@ button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
 // =============================================
 let SUPABASE_URL = localStorage.getItem('sb_url') || '';
 let SUPABASE_KEY = localStorage.getItem('sb_key') || '';
-let supabase = null;
+let sbClient = null;
 
 function initSupabase() {
   if (!SUPABASE_URL || !SUPABASE_KEY) {
@@ -226,7 +226,7 @@ function initSupabase() {
     return false;
   }
   try {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     document.getElementById('configWarn').style.display = 'none';
     return true;
   } catch(e) {
@@ -652,10 +652,10 @@ async function loadAll() {
 async function loadCatalog() {
   if (!supabase) return;
   const [{ data: cov }, { data: non }, { data: rates }, { data: inc }] = await Promise.all([
-    supabase.from('products_covered').select('*').order('name'),
-    supabase.from('products_noncovered').select('*').order('name'),
-    supabase.from('rate_history').select('*'),
-    supabase.from('incentives').select('*'),
+    sbClient.from('products_covered').select('*').order('name'),
+    sbClient.from('products_noncovered').select('*').order('name'),
+    sbClient.from('rate_history').select('*'),
+    sbClient.from('incentives').select('*'),
   ]);
   st.coveredProducts = cov || [];
   st.noncoveredProducts = non || [];
@@ -666,8 +666,8 @@ async function loadCatalog() {
 async function loadMeta() {
   if (!supabase) return;
   const [{ data: hosp }, { data: months }] = await Promise.all([
-    supabase.from('hospitals').select('name').order('name'),
-    supabase.from('months').select('month').order('month'),
+    sbClient.from('hospitals').select('name').order('name'),
+    sbClient.from('months').select('month').order('month'),
   ]);
   st.hospitals = (hosp||[]).map(x=>x.name);
   st.months = (months||[]).map(x=>x.month);
@@ -677,7 +677,7 @@ async function loadMeta() {
 
 async function loadSaved() {
   if (!supabase) return;
-  const { data } = await supabase.from('settlements').select('*').order('saved_at', { ascending: false });
+  const { data } = await sbClient.from('settlements').select('*').order('saved_at', { ascending: false });
   st.saved = (data||[]).map(r => ({
     ...r,
     month: normalizeMonth(r.month),
@@ -695,7 +695,7 @@ async function saveCurrent() {
     items_json: st.items, total_sales: Math.round(t.sales), total_fee: Math.round(t.fee),
     total_supply: Math.round(t.supply), total_vat: Math.round(t.vat), saved_at: new Date().toISOString(),
   };
-  const { error } = await supabase.from('settlements').upsert(payload, { onConflict: 'key' });
+  const { error } = await sbClient.from('settlements').upsert(payload, { onConflict: 'key' });
   if (error) { alert('저장 실패: ' + error.message); return; }
   await loadSaved();
   renderSavedMonthFilter(); renderSaved(); renderMonthFilter(); renderMonthOverview();
@@ -706,7 +706,7 @@ async function addHospitalFn() {
   const name = currentHospital();
   if (!name || name === '병원') return;
   if (!st.hospitals.includes(name)) {
-    if (supabase) await supabase.from('hospitals').upsert({ name }, { onConflict: 'name' });
+    if (sbClient) await sbClient.from('hospitals').upsert({ name }, { onConflict: 'name' });
     st.hospitals = uniqSorted([...st.hospitals, name]);
     renderHospitalMonthSelectors(); $('hospitalSelect').value = name;
   }
@@ -716,7 +716,7 @@ async function addMonthFn() {
   const month = normalizeMonth($('monthInput').value || $('monthSelect').value);
   if (!month) return;
   if (!st.months.includes(month)) {
-    if (supabase) await supabase.from('months').upsert({ month }, { onConflict: 'month' });
+    if (sbClient) await sbClient.from('months').upsert({ month }, { onConflict: 'month' });
     st.months = uniqSorted([...st.months, month]);
     renderHospitalMonthSelectors(); $('monthSelect').value = month;
     renderMonthFilter(); renderMonthOverview();
@@ -725,7 +725,7 @@ async function addMonthFn() {
 
 async function deleteSettlement(key) {
   if (!confirm('삭제하시겠어요?')) return;
-  if (supabase) await supabase.from('settlements').delete().eq('key', key);
+  if (sbClient) await sbClient.from('settlements').delete().eq('key', key);
   st.saved = st.saved.filter(x => x.key !== key);
   renderSavedMonthFilter(); renderSaved(); renderMonthFilter(); renderMonthOverview();
 }
@@ -842,7 +842,7 @@ async function editProductEnd(type, name, currentEnd) {
     async () => {
       const val = ($('mEndMonth').value||'').trim();
       const table = type === 'covered' ? 'products_covered' : 'products_noncovered';
-      const { error } = await supabase.from(table).update({ active_to: val || null }).eq('name', name);
+      const { error } = await sbClient.from(table).update({ active_to: val || null }).eq('name', name);
       if (error) { alert('오류: ' + error.message); return; }
       await loadCatalog(); closeModal(); renderAdminLists();
       alert('저장되었습니다.');
@@ -862,7 +862,7 @@ async function showAddRateModalFor(name) {
       const to = ($('mRateTo').value||'').trim() || null;
       const rate = Number($('mRateVal').value||0) / 100;
       if (!from || !rate) { alert('시작월과 요율을 입력하세요.'); return; }
-      const { error } = await supabase.from('rate_history').insert({ product_name: name, rate, effective_from: from, effective_to: to });
+      const { error } = await sbClient.from('rate_history').insert({ product_name: name, rate, effective_from: from, effective_to: to });
       if (error) { alert('오류: ' + error.message); return; }
       await loadCatalog(); closeModal(); renderAdminLists(); loadProducts();
       alert('요율 변경 이력이 추가되었습니다.');
@@ -882,7 +882,7 @@ window.showAddRateModal = () => {
       const to = ($('mRateTo').value||'').trim() || null;
       const rate = Number($('mRateVal').value||0) / 100;
       if (!name || !from || !rate) { alert('제품명, 시작월, 요율 모두 입력하세요.'); return; }
-      const { error } = await supabase.from('rate_history').insert({ product_name: name, rate, effective_from: from, effective_to: to });
+      const { error } = await sbClient.from('rate_history').insert({ product_name: name, rate, effective_from: from, effective_to: to });
       if (error) { alert('오류: ' + error.message); return; }
       await loadCatalog(); closeModal(); renderAdminLists(); loadProducts();
       alert('추가되었습니다.');
@@ -910,12 +910,12 @@ window.showAddProductModal = (type) => {
       let error;
       if (isNon) {
         payload.shipping_price = Number($('mPShip')?.value||0);
-        ({ error } = await supabase.from('products_noncovered').insert(payload));
+        ({ error } = await sbClient.from('products_noncovered').insert(payload));
       } else {
         const rate = Number($('mPRate')?.value||0) / 100;
-        ({ error } = await supabase.from('products_covered').insert(payload));
+        ({ error } = await sbClient.from('products_covered').insert(payload));
         if (!error && rate > 0) {
-          await supabase.from('rate_history').insert({ product_name: name, rate, effective_from: payload.active_from, effective_to: null });
+          await sbClient.from('rate_history').insert({ product_name: name, rate, effective_from: payload.active_from, effective_to: null });
         }
       }
       if (error) { alert('오류: ' + error.message); return; }
