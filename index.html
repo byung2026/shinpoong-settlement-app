@@ -36,24 +36,60 @@ button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
 .loading{text-align:center;padding:40px;color:#64748b}
 .config-warn{background:#1c0a00;border:1px solid #92400e;border-radius:12px;padding:14px;margin-bottom:16px;color:#fde68a}
 @media(max-width:760px){.g2,.g3{grid-template-columns:1fr} th,td{font-size:12px}}
+/* 로그인 화면 */
+#loginScreen{position:fixed;inset:0;background:linear-gradient(180deg,#020617,#0f172a 35%,#111827);z-index:999;display:flex;align-items:center;justify-content:center;}
+.login-box{background:#111827;border:1px solid #334155;border-radius:20px;padding:36px 28px;width:90%;max-width:380px;}
+.login-box h2{margin:0 0 6px;font-size:22px;}
+.login-box .sub{color:#64748b;font-size:13px;margin-bottom:24px;}
+.login-field{margin-bottom:14px;}
+.login-field label{display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;}
+.login-field input{background:#020617;border:1px solid #334155;color:#f8fafc;border-radius:12px;padding:12px;width:100%;box-sizing:border-box;font-size:15px;}
+.login-field input:focus{outline:none;border-color:#38bdf8;}
+.remember-row{display:flex;align-items:center;gap:8px;margin-bottom:18px;}
+.remember-row input[type=checkbox]{width:auto;margin:0;}
+.remember-row label{font-size:13px;color:#94a3b8;cursor:pointer;}
+.login-btn{width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(90deg,#38bdf8,#22c55e);color:#001018;font-size:16px;font-weight:700;cursor:pointer;}
+.login-error{color:#f87171;font-size:13px;margin-top:10px;text-align:center;min-height:20px;}
+/* 로그아웃 버튼 */
+#logoutBtn{position:fixed;top:16px;right:16px;z-index:100;padding:8px 16px;font-size:13px;width:auto;background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:10px;cursor:pointer;}
 </style>
 </head>
 <body>
+
+<!-- 로그인 화면 -->
+<div id="loginScreen">
+  <div class="login-box">
+    <h2>신풍제약 정산 계산기</h2>
+    <div class="sub">로그인하여 시작하세요</div>
+    <div class="login-field">
+      <label>이메일</label>
+      <input type="email" id="loginEmail" placeholder="이메일 입력" autocomplete="email">
+    </div>
+    <div class="login-field">
+      <label>비밀번호</label>
+      <input type="password" id="loginPw" placeholder="비밀번호 입력" autocomplete="current-password">
+    </div>
+    <div class="remember-row">
+      <input type="checkbox" id="rememberEmail">
+      <label for="rememberEmail">아이디 저장</label>
+    </div>
+    <button class="login-btn" id="loginBtn">로그인</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- 로그아웃 버튼 -->
+<button id="logoutBtn" style="display:none;">로그아웃</button>
+
 <div class="wrap">
   <h1>신풍제약 정산 계산기</h1>
   <div class="small" style="margin-bottom:4px;">Supabase 연동 · 기간별 수수료율 자동 적용 · 제품 유효기간 관리</div>
-
-  <!-- Supabase 설정 안내 -->
-  <div id="configWarn" class="config-warn" style="display:none;">
-    ⚠️ Supabase URL과 KEY를 아래 설정 탭에서 입력해주세요.
-  </div>
 
   <!-- 탭 바 -->
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="settlement">정산 입력</button>
     <button class="tab-btn" data-tab="monthly">월별 현황</button>
     <button class="tab-btn" data-tab="admin">제품 관리</button>
-    <button class="tab-btn" data-tab="config">설정</button>
   </div>
 
   <!-- ===== 탭1: 정산 입력 ===== -->
@@ -167,37 +203,12 @@ button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
     </div>
   </div>
 
-  <!-- ===== 탭4: 설정 ===== -->
-  <div id="tab-config" class="tab-content">
-    <div class="card">
-      <h3>Supabase 연결 설정</h3>
-      <div class="small" style="margin-bottom:12px;">Supabase 프로젝트의 URL과 anon key를 입력하세요. 저장 후 새로고침하면 적용됩니다.</div>
-      <div style="margin-bottom:12px;">
-        <div class="small">Project URL</div>
-        <input id="cfgUrl" placeholder="https://xxxxxxxx.supabase.co" style="margin-top:6px;">
-      </div>
-      <div style="margin-bottom:12px;">
-        <div class="small">Anon Key</div>
-        <input id="cfgKey" placeholder="eyJhbGci..." style="margin-top:6px;">
-      </div>
-      <div class="actions">
-        <button onclick="saveConfig()">저장 후 새로고침</button>
-        <button onclick="testConnection()" class="sec">연결 테스트</button>
-      </div>
-      <div id="cfgStatus" style="margin-top:10px;"></div>
-    </div>
-    <div class="card">
-      <h3>Supabase 설정 방법</h3>
-      <div class="small" style="line-height:1.8;">
-        1. <b>supabase.com</b> → 프로젝트 선택<br>
-        2. 왼쪽 메뉴 <b>Settings → API</b> 클릭<br>
-        3. <b>Project URL</b> 복사 → 위 URL란 붙여넣기<br>
-        4. <b>anon public</b> 키 복사 → 위 Key란 붙여넣기<br>
-        5. 저장 버튼 클릭<br><br>
-        6. <b>SQL Editor</b>에서 <code>supabase_setup.sql</code> 파일 내용 실행
-      </div>
-    </div>
-  </div>
+  <!-- 숨김: 설정 탭 제거됨 (credentials 코드에 고정) -->
+  <div id="tab-config" class="tab-content" style="display:none!important;"></div>
+  <!-- hidden inputs for legacy refs -->
+  <input id="cfgUrl" type="hidden">
+  <input id="cfgKey" type="hidden">
+  <div id="cfgStatus" style="display:none;"></div>
 </div>
 
 <!-- 모달: 제품 추가 -->
@@ -214,43 +225,66 @@ button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
 
 <script>
 // =============================================
-// Supabase 설정
+// Supabase 설정 (고정)
 // =============================================
-let SUPABASE_URL = localStorage.getItem('sb_url') || '';
-let SUPABASE_KEY = localStorage.getItem('sb_key') || '';
+const SUPABASE_URL = 'https://paeumfhredezpwyrirjq.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhZXVtZmhyZWRlenB3eXJpcmpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0OTA3NzMsImV4cCI6MjA5OTA2Njc3M30.HUR4OiIuHIJBXwq13-uEUXOd9ghxRUFiOYSCfHqDES8';
 let sbClient = null;
 
 function initSupabase() {
-  if (!SUPABASE_URL || !SUPABASE_KEY) {
-    document.getElementById('configWarn').style.display = '';
-    return false;
-  }
   try {
     sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-    document.getElementById('configWarn').style.display = 'none';
     return true;
-  } catch(e) {
-    document.getElementById('configWarn').style.display = '';
-    return false;
-  }
+  } catch(e) { return false; }
 }
 
-function saveConfig() {
-  const url = document.getElementById('cfgUrl').value.trim();
-  const key = document.getElementById('cfgKey').value.trim();
-  if (!url || !key) { alert('URL과 KEY를 모두 입력해주세요.'); return; }
-  localStorage.setItem('sb_url', url);
-  localStorage.setItem('sb_key', key);
-  location.reload();
+// =============================================
+// 로그인 / 인증
+// =============================================
+// 아이디 저장 불러오기
+const savedEmail = localStorage.getItem('saved_email');
+if (savedEmail) {
+  document.getElementById('loginEmail').value = savedEmail;
+  document.getElementById('rememberEmail').checked = true;
+}
+
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const email = document.getElementById('loginEmail').value.trim();
+  const pw = document.getElementById('loginPw').value;
+  const remember = document.getElementById('rememberEmail').checked;
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+  if (!email || !pw) { errEl.textContent = '이메일과 비밀번호를 입력해주세요.'; return; }
+  document.getElementById('loginBtn').textContent = '로그인 중...';
+  const { error } = await sbClient.auth.signInWithPassword({ email, password: pw });
+  document.getElementById('loginBtn').textContent = '로그인';
+  if (error) { errEl.textContent = '이메일 또는 비밀번호가 올바르지 않습니다.'; return; }
+  if (remember) localStorage.setItem('saved_email', email);
+  else localStorage.removeItem('saved_email');
+  showApp();
+  await loadAll();
+});
+
+document.getElementById('loginPw').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('loginBtn').click();
+});
+
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await sbClient.auth.signOut();
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('logoutBtn').style.display = 'none';
+  document.getElementById('loginPw').value = '';
+});
+
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('logoutBtn').style.display = '';
 }
 
 async function testConnection() {
-  const url = document.getElementById('cfgUrl').value.trim();
-  const key = document.getElementById('cfgKey').value.trim();
   const el = document.getElementById('cfgStatus');
   try {
-    const client = window.supabase.createClient(url, key);
-    const { error } = await client.from('hospitals').select('count').limit(1);
+    const { error } = await sbClient.from('hospitals').select('count').limit(1);
     if (error) throw error;
     el.innerHTML = '<span style="color:#22c55e;">✓ 연결 성공!</span>';
   } catch(e) {
@@ -1023,21 +1057,18 @@ $('product').addEventListener('change', toggleMethodRow);
 $('savedMonthFilter').addEventListener('change', e => { st.savedMonthFilter = e.target.value; renderSaved(); });
 $('monthFilter').addEventListener('change', e => { st.monthFilter = e.target.value; renderMonthOverview(); });
 
-// 설정 탭 초기값
-$('cfgUrl').value = SUPABASE_URL;
-$('cfgKey').value = SUPABASE_KEY;
-
 // =============================================
 // 초기화
 // =============================================
 async function initApp() {
-  if (initSupabase()) {
+  initSupabase();
+  // 기존 세션 확인 (로그인 유지)
+  const { data: { session } } = await sbClient.auth.getSession();
+  if (session) {
+    showApp();
     await loadAll();
-  } else {
-    // Supabase 미설정 시 기본 상태
-    st.hospitals = ['병원']; st.months = ['2026-07'];
-    renderHospitalMonthSelectors(); updateHeader(); render();
   }
+  // 세션 없으면 로그인 화면 유지
 }
 initApp();
 </script>
