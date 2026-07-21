@@ -89,6 +89,7 @@ button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="settlement">정산 입력</button>
     <button class="tab-btn" data-tab="monthly">월별 현황</button>
+    <button class="tab-btn" data-tab="cso">CSO 정산</button>
     <button class="tab-btn" data-tab="admin">제품 관리</button>
   </div>
 
@@ -104,6 +105,10 @@ button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
         <div class="grid g2" style="margin-top:12px;">
           <div><div class="small">새 병원명 추가</div><input id="hospitalInput" placeholder="병원명 입력"></div>
           <div><div class="small">새 정산월 추가</div><input id="monthInput" placeholder="2026-07"></div>
+        </div>
+        <div style="margin-top:8px;">
+          <div class="small">거래처 선택 (병원 등록 시)</div>
+          <select id="hospitalDistributor" style="margin-top:4px;"><option value="">거래처 없음</option></select>
         </div>
         <div class="actions" style="margin-top:10px;">
           <button id="addHospital" class="sec">병원명 등록</button>
@@ -183,7 +188,34 @@ button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
     </div>
   </div>
 
-  <!-- ===== 탭3: 제품 관리 ===== -->
+  <!-- ===== 탭3: CSO 정산 ===== -->
+  <div id="tab-cso" class="tab-content">
+    <div class="card">
+      <h3>CSO 정산서</h3>
+      <div class="grid g2" style="margin-bottom:12px;">
+        <div><div class="small">정산 월 선택</div><select id="csoMonthFilter"></select></div>
+        <div style="display:flex;align-items:flex-end;"><button id="printCso" class="sec">정산서 인쇄/PDF</button></div>
+      </div>
+      <div id="csoOverview"></div>
+    </div>
+    <div class="card">
+      <h3>거래처 관리</h3>
+      <div class="small" style="margin-bottom:12px;">거래처별 수수료율을 등록합니다. 병원 등록 시 거래처를 연결하면 CSO 정산서에 자동 반영됩니다.</div>
+      <div class="grid g3" style="margin-bottom:10px;">
+        <div><div class="small">거래처명</div><input id="distName" placeholder="예: 피제이팜"></div>
+        <div><div class="small">수수료율 (%)</div><input id="distRate" type="number" min="0" max="100" placeholder="예: 15"></div>
+        <div style="display:flex;align-items:flex-end;"><button id="addDist" class="sec">거래처 등록</button></div>
+      </div>
+      <div id="distList"></div>
+    </div>
+    <div class="card">
+      <h3>병원-거래처 연결</h3>
+      <div class="small" style="margin-bottom:12px;">각 병원이 어느 거래처 소속인지 설정합니다.</div>
+      <div id="hospitalDistList"></div>
+    </div>
+  </div>
+
+  <!-- ===== 탭4: 제품 관리 ===== -->
   <div id="tab-admin" class="tab-content">
     <div class="card">
       <h3>급여 제품 관리</h3>
@@ -307,6 +339,9 @@ const st = {
   filter: '',
   monthFilter: 'ALL',
   savedMonthFilter: 'ALL',
+  distributors: [],
+  hospitalInfo: [],
+  csoMonthFilter: 'ALL',
 };
 
 const $ = id => document.getElementById(id);
@@ -323,6 +358,7 @@ function switchTab(name, btn) {
   if (btn) btn.classList.add('active');
   if (name === 'admin') renderAdminLists();
   if (name === 'monthly') renderMonthOverview();
+  if (name === 'cso') { renderDistributors(); renderCsoOverview(); }
 }
 
 // =============================================
@@ -679,6 +715,7 @@ async function loadAll() {
   renderSavedMonthFilter();
   renderSaved();
   renderMonthFilter();
+  renderCsoMonthFilter();
   updateHeader();
   render();
 }
@@ -699,12 +736,15 @@ async function loadCatalog() {
 
 async function loadMeta() {
   if (!supabase) return;
-  const [{ data: hosp }, { data: months }] = await Promise.all([
-    sbClient.from('hospitals').select('name').order('name'),
+  const [{ data: hosp }, { data: months }, { data: dists }] = await Promise.all([
+    sbClient.from('hospitals').select('name, distributor_name').order('name'),
     sbClient.from('months').select('month').order('month'),
+    sbClient.from('distributors').select('*').order('name'),
   ]);
+  st.hospitalInfo = hosp || [];
   st.hospitals = (hosp||[]).map(x=>x.name);
   st.months = (months||[]).map(x=>x.month);
+  st.distributors = dists || [];
   if (!st.hospitals.length) st.hospitals = ['병원'];
   if (!st.months.length) st.months = ['2026-07'];
 }
@@ -739,10 +779,15 @@ async function saveCurrent() {
 async function addHospitalFn() {
   const name = currentHospital();
   if (!name || name === '병원') return;
+  const distName = $('hospitalDistributor') ? $('hospitalDistributor').value : '';
   if (!st.hospitals.includes(name)) {
-    if (sbClient) await sbClient.from('hospitals').upsert({ name }, { onConflict: 'name' });
+    if (sbClient) await sbClient.from('hospitals').upsert({ name, distributor_name: distName }, { onConflict: 'name' });
     st.hospitals = uniqSorted([...st.hospitals, name]);
+    st.hospitalInfo.push({ name, distributor_name: distName });
     renderHospitalMonthSelectors(); $('hospitalSelect').value = name;
+  } else if (distName) {
+    // 이미 있는 병원이면 거래처만 업데이트
+    await updateHospitalDist(name, distName);
   }
 }
 
@@ -853,6 +898,254 @@ function renderAdminLists() {
     </div>`;
   }).join('');
   $('adminNoncoveredList').innerHTML = nonHtml || '<div class="small">제품 없음</div>';
+}
+
+// =============================================
+// 거래처 관리
+// =============================================
+function renderDistributors() {
+  // 거래처 목록
+  const html = st.distributors.map(d => `
+    <div class="item" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <div>
+        <div style="font-weight:700;">${d.name}</div>
+        <div class="small">수수료율 ${(d.rate*100).toFixed(0)}%</div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="editDist(${d.id},'${d.name}',${d.rate})" class="sec" style="width:auto;padding:6px 12px;font-size:12px;">수정</button>
+        <button onclick="deleteDist(${d.id})" class="del" style="width:auto;padding:6px 12px;font-size:12px;">삭제</button>
+      </div>
+    </div>`).join('');
+  $('distList').innerHTML = html || '<div class="small">등록된 거래처 없음</div>';
+
+  // 병원-거래처 연결 목록
+  const hospHtml = st.hospitalInfo.map(h => `
+    <div class="item" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+      <div style="font-weight:700;">${h.name}</div>
+      <select onchange="updateHospitalDist('${h.name}',this.value)" style="width:auto;min-width:160px;">
+        <option value="">거래처 없음</option>
+        ${st.distributors.map(d=>`<option value="${d.name}" ${h.distributor_name===d.name?'selected':''}>${d.name}</option>`).join('')}
+      </select>
+    </div>`).join('');
+  $('hospitalDistList').innerHTML = hospHtml || '<div class="small">등록된 병원 없음</div>';
+
+  // 병원 등록 시 거래처 드롭다운 갱신
+  const distSel = $('hospitalDistributor');
+  const cur = distSel.value;
+  distSel.innerHTML = '<option value="">거래처 없음</option>' +
+    st.distributors.map(d=>`<option value="${d.name}">${d.name}</option>`).join('');
+  distSel.value = cur;
+
+  // CSO 월 필터 갱신
+  renderCsoMonthFilter();
+}
+
+async function addDistFn() {
+  const name = $('distName').value.trim();
+  const rate = parseFloat($('distRate').value) / 100;
+  if (!name) { alert('거래처명을 입력하세요.'); return; }
+  if (isNaN(rate)) { alert('수수료율을 입력하세요.'); return; }
+  const { error } = await sbClient.from('distributors').upsert({ name, rate }, { onConflict: 'name' });
+  if (error) { alert('저장 실패: ' + error.message); return; }
+  $('distName').value = ''; $('distRate').value = '';
+  await loadMeta();
+  renderDistributors();
+  alert('거래처가 등록되었습니다.');
+}
+
+async function editDist(id, name, rate) {
+  const newName = prompt('거래처명', name);
+  if (!newName) return;
+  const newRateStr = prompt('수수료율 (%)', (rate*100).toFixed(0));
+  if (!newRateStr) return;
+  const newRate = parseFloat(newRateStr) / 100;
+  const { error } = await sbClient.from('distributors').update({ name: newName, rate: newRate }).eq('id', id);
+  if (error) { alert('수정 실패: ' + error.message); return; }
+  await loadMeta();
+  renderDistributors();
+}
+
+async function deleteDist(id) {
+  if (!confirm('삭제하시겠어요?')) return;
+  await sbClient.from('distributors').delete().eq('id', id);
+  await loadMeta();
+  renderDistributors();
+}
+
+async function updateHospitalDist(hospitalName, distName) {
+  await sbClient.from('hospitals').update({ distributor_name: distName }).eq('name', hospitalName);
+  const h = st.hospitalInfo.find(x => x.name === hospitalName);
+  if (h) h.distributor_name = distName;
+}
+
+// =============================================
+// CSO 정산서
+// =============================================
+function renderCsoMonthFilter() {
+  const sel = $('csoMonthFilter');
+  if (!sel) return;
+  const cur = sel.value || st.csoMonthFilter;
+  sel.innerHTML = '<option value="ALL">전체 월</option>' +
+    st.months.map(m=>`<option value="${m}">${m}</option>`).join('');
+  sel.value = cur;
+}
+
+function renderCsoOverview() {
+  const month = $('csoMonthFilter') ? $('csoMonthFilter').value : 'ALL';
+  st.csoMonthFilter = month;
+  const rows = st.saved.filter(r => month === 'ALL' || r.month === month);
+  if (!rows.length) { $('csoOverview').innerHTML = '<div class="small">저장된 정산이 없습니다.</div>'; return; }
+
+  // 거래처별 그룹핑
+  const grouped = {};
+  rows.forEach(row => {
+    const hInfo = st.hospitalInfo.find(h => h.name === row.hospital);
+    const distName = hInfo?.distributor_name || '미지정';
+    if (!grouped[distName]) grouped[distName] = [];
+    grouped[distName].push(row);
+  });
+
+  let html = '';
+  Object.entries(grouped).forEach(([distName, dRows]) => {
+    const dist = st.distributors.find(d => d.name === distName);
+    const rate = dist ? dist.rate : 0;
+    let totalSales = 0, totalFee = 0;
+    const hospBlocks = dRows.map(row => {
+      let rowSales = 0;
+      const itemRows = (row.items_json||[]).map(item => {
+        const c = calc(item, row.month);
+        rowSales += c.sales;
+        return `<tr><td>${item.name}</td><td>${fmt(item.quantity)}</td><td>${money(c.sales)}</td></tr>`;
+      }).join('');
+      const rowFee = Math.round(rowSales * rate);
+      totalSales += rowSales; totalFee += rowFee;
+      return `
+        <tr style="background:rgba(56,189,248,.06);">
+          <td colspan="3" style="font-weight:700;padding:8px;">${row.hospital} <span class="small">${row.month}</span></td>
+        </tr>
+        ${itemRows}
+        <tr style="border-top:1px solid #334155;">
+          <td colspan="2" style="text-align:right;color:#94a3b8;padding:6px 8px;">소계</td>
+          <td style="font-weight:700;">${money(rowSales)}</td>
+        </tr>`;
+    }).join('');
+
+    html += `<div class="item" style="margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
+        <div>
+          <div style="font-size:17px;font-weight:800;">${distName}</div>
+          <div class="small">수수료율 ${(rate*100).toFixed(0)}%</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="small">판매합계</div>
+          <div style="font-weight:700;">${money(totalSales)}</div>
+          <div class="small" style="color:#38bdf8;">수수료 ${money(totalFee)}</div>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>제품명</th><th>수량</th><th>판매금액</th></tr></thead>
+          <tbody>${hospBlocks}</tbody>
+          <tfoot><tr style="font-weight:800;background:rgba(56,189,248,.1);">
+            <td colspan="2" style="text-align:right;padding:8px;">합계</td>
+            <td>${money(totalSales)}</td>
+          </tr>
+          <tr style="color:#38bdf8;font-weight:800;">
+            <td colspan="2" style="text-align:right;padding:8px;">수수료</td>
+            <td>${money(totalFee)}</td>
+          </tr></tfoot>
+        </table>
+      </div>
+    </div>`;
+  });
+  $('csoOverview').innerHTML = html;
+}
+
+function printCsoSettlement() {
+  const month = st.csoMonthFilter;
+  const rows = st.saved.filter(r => month === 'ALL' || r.month === month);
+  if (!rows.length) { alert('정산 데이터가 없습니다.'); return; }
+
+  const grouped = {};
+  rows.forEach(row => {
+    const hInfo = st.hospitalInfo.find(h => h.name === row.hospital);
+    const distName = hInfo?.distributor_name || '미지정';
+    if (!grouped[distName]) grouped[distName] = [];
+    grouped[distName].push(row);
+  });
+
+  let blocks = '';
+  let grandSales = 0, grandFee = 0;
+  Object.entries(grouped).forEach(([distName, dRows]) => {
+    const dist = st.distributors.find(d => d.name === distName);
+    const rate = dist ? dist.rate : 0;
+    let totalSales = 0, totalFee = 0;
+
+    const hospRows = dRows.map(row => {
+      const itemRows = (row.items_json||[]).map(item => {
+        const c = calc(item, row.month);
+        totalSales += c.sales;
+        return `<tr><td>${row.hospital}</td><td>${item.name}</td><td style="text-align:right;">${money(c.sales)}</td><td style="text-align:right;">-</td></tr>`;
+      }).join('');
+      const rowSales = (row.items_json||[]).reduce((s,item) => s + calc(item,row.month).sales, 0);
+      const rowFee = Math.round(rowSales * rate);
+      return itemRows + `<tr style="background:#f9f9f9;"><td colspan="2" style="text-align:right;color:#666;padding:4px 8px;">${row.hospital} 소계</td><td style="text-align:right;font-weight:700;">${money(rowSales)}</td><td style="text-align:right;color:#1a6fcf;">${money(rowFee)}</td></tr>`;
+    }).join('');
+
+    totalFee = Math.round(totalSales * rate);
+    grandSales += totalSales; grandFee += totalFee;
+
+    blocks += `
+      <div style="margin-bottom:24px;page-break-inside:avoid;">
+        <div style="border-left:4px solid #1a6fcf;padding-left:10px;margin-bottom:8px;">
+          <strong style="font-size:15px;">${distName}</strong>
+          <span style="font-size:12px;color:#555;margin-left:8px;">수수료율 ${(rate*100).toFixed(0)}%</span>
+        </div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+          <thead><tr style="background:#f0f4f8;">
+            <th style="border:1px solid #ddd;padding:6px;text-align:left;">병원명</th>
+            <th style="border:1px solid #ddd;padding:6px;text-align:left;">제품명</th>
+            <th style="border:1px solid #ddd;padding:6px;text-align:right;">판매금액</th>
+            <th style="border:1px solid #ddd;padding:6px;text-align:right;">수수료</th>
+          </tr></thead>
+          <tbody>${hospRows}</tbody>
+          <tfoot>
+            <tr style="font-weight:700;background:#e8f0fe;">
+              <td colspan="2" style="border:1px solid #ddd;padding:6px;text-align:right;">소계</td>
+              <td style="border:1px solid #ddd;padding:6px;text-align:right;">${money(totalSales)}</td>
+              <td style="border:1px solid #ddd;padding:6px;text-align:right;color:#1a6fcf;">${money(totalFee)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>`;
+  });
+
+  const monthLabel = month === 'ALL' ? '전체' : month.replace('-','년 ') + '월';
+  const popup = window.open('','_blank');
+  if (!popup) { alert('팝업 차단됨'); return; }
+  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>정산서</title>
+    <style>
+      @page{size:A4;margin:15mm}
+      body{font-family:'Apple SD Gothic Neo','Noto Sans KR',Arial,sans-serif;margin:20px;color:#111;font-size:13px;}
+      h1{font-size:22px;margin:0 0 4px;}
+      .top{margin-bottom:16px;}
+      .top button{padding:8px 16px;border:1px solid #bbb;background:#f7f7f7;border-radius:6px;cursor:pointer;font-size:13px;}
+      .summary-box{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;border:1px solid #ddd;padding:12px;border-radius:6px;}
+      .summary-box div{font-size:13px;}
+      .summary-box strong{font-size:18px;color:#1a6fcf;}
+      @media print{.top{display:none}body{margin:0}}
+    </style></head><body>
+    <div class="top"><button onclick="window.print()">인쇄 / PDF 저장</button></div>
+    <h1>정산서</h1>
+    <p style="color:#555;margin:0 0 16px;">정산 월: ${monthLabel}</p>
+    <div class="summary-box">
+      <div>전체 판매금액 합계<br><strong>${money(grandSales)}</strong></div>
+      <div>전체 수수료 합계<br><strong>${money(grandFee)}</strong></div>
+    </div>
+    ${blocks}
+    <p style="text-align:right;color:#888;font-size:11px;margin-top:20px;">※ 본 정산서는 거래처별 협의 수수료를 기준으로 작성되었습니다.</p>
+  </body></html>`);
+  popup.document.close();
 }
 
 // 모달
@@ -1047,6 +1340,9 @@ $('downloadPdf').addEventListener('click', openPdf);
 $('downloadMonthCsv').addEventListener('click', downloadMonthCsv);
 $('downloadMonthPdf').addEventListener('click', openMonthPdf);
 $('addHospital').addEventListener('click', addHospitalFn);
+$('addDist').addEventListener('click', addDistFn);
+$('csoMonthFilter').addEventListener('change', e => { st.csoMonthFilter = e.target.value; renderCsoOverview(); });
+$('printCso').addEventListener('click', printCsoSettlement);
 $('addMonth').addEventListener('click', addMonthFn);
 $('hospitalSelect').addEventListener('change', e => { $('hospitalInput').value = e.target.value; updateHeader(); loadProducts(); });
 $('monthSelect').addEventListener('change', e => { $('monthInput').value = e.target.value; updateHeader(); loadProducts(); render(); });
