@@ -1166,35 +1166,35 @@ function printCsoSettlement() {
       const itemRows = (row.items_json||[]).map(item => {
         const c = calc(item, row.month);
         totalSales += c.sales;
-        return `<tr><td>${row.hospital}</td><td>${item.name}</td><td style="text-align:right;">${money(c.sales)}</td><td style="text-align:right;">-</td></tr>`;
+        return `<tr><td>${row.hospital}</td><td>${item.name}</td><td>${money(c.sales)}</td><td>-</td></tr>`;
       }).join('');
       const rowSales = (row.items_json||[]).reduce((s,item) => s + calc(item,row.month).sales, 0);
       const rowFee = Math.round(rowSales * rate);
-      return itemRows + `<tr style="background:#f9f9f9;"><td colspan="2" style="text-align:right;color:#666;padding:4px 8px;">${row.hospital} 소계</td><td style="text-align:right;font-weight:700;">${money(rowSales)}</td><td style="text-align:right;color:#1a6fcf;">${money(rowFee)}</td></tr>`;
+      return itemRows + `<tr class="subtotal-row"><td colspan="2" style="text-align:right;">${row.hospital} 소계</td><td style="font-weight:700;">${money(rowSales)}</td><td style="color:#1a6fcf;">${money(rowFee)}</td></tr>`;
     }).join('');
 
     totalFee = Math.round(totalSales * rate);
     grandSales += totalSales; grandFee += totalFee;
 
     blocks += `
-      <div style="margin-bottom:24px;page-break-inside:avoid;">
-        <div style="border-left:4px solid #1a6fcf;padding-left:10px;margin-bottom:8px;">
-          <strong style="font-size:15px;">${distName}</strong>
-          <span style="font-size:12px;color:#555;margin-left:8px;">수수료율 ${(rate*100).toFixed(0)}%</span>
+      <div style="margin-bottom:28px;page-break-inside:avoid;">
+        <div class="dist-header">
+          <strong>${distName}</strong>
+          <span>수수료율 ${(rate*100).toFixed(0)}%</span>
         </div>
-        <table style="width:100%;border-collapse:collapse;font-size:12px;">
-          <thead><tr style="background:#f0f4f8;">
-            <th style="border:1px solid #ddd;padding:6px;text-align:left;">병원명</th>
-            <th style="border:1px solid #ddd;padding:6px;text-align:left;">제품명</th>
-            <th style="border:1px solid #ddd;padding:6px;text-align:right;">판매금액</th>
-            <th style="border:1px solid #ddd;padding:6px;text-align:right;">수수료</th>
+        <table>
+          <thead><tr>
+            <th>병원명</th>
+            <th>제품명</th>
+            <th>판매금액</th>
+            <th>수수료</th>
           </tr></thead>
           <tbody>${hospRows}</tbody>
           <tfoot>
-            <tr style="font-weight:700;background:#e8f0fe;">
-              <td colspan="2" style="border:1px solid #ddd;padding:6px;text-align:right;">소계</td>
-              <td style="border:1px solid #ddd;padding:6px;text-align:right;">${money(totalSales)}</td>
-              <td style="border:1px solid #ddd;padding:6px;text-align:right;color:#1a6fcf;">${money(totalFee)}</td>
+            <tr class="total-row">
+              <td colspan="2" style="text-align:right;">소계</td>
+              <td>${money(totalSales)}</td>
+              <td style="color:#1a6fcf;">${money(totalFee)}</td>
             </tr>
           </tfoot>
         </table>
@@ -1207,24 +1207,34 @@ function printCsoSettlement() {
   popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>정산서</title>
     <style>
       @page{size:A4;margin:15mm}
-      body{font-family:'Apple SD Gothic Neo','Noto Sans KR',Arial,sans-serif;margin:20px;color:#111;font-size:13px;}
-      h1{font-size:22px;margin:0 0 4px;}
-      .top{margin-bottom:16px;}
-      .top button{padding:8px 16px;border:1px solid #bbb;background:#f7f7f7;border-radius:6px;cursor:pointer;font-size:13px;}
-      .summary-box{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px;border:1px solid #ddd;padding:12px;border-radius:6px;}
-      .summary-box div{font-size:13px;}
-      .summary-box strong{font-size:18px;color:#1a6fcf;}
+      body{font-family:'Apple SD Gothic Neo','Noto Sans KR',Arial,sans-serif;margin:24px;color:#111;font-size:15px;}
+      h1{font-size:26px;margin:0 0 6px;}
+      .top{margin-bottom:18px;}
+      .top button{padding:10px 20px;border:1px solid #bbb;background:#f7f7f7;border-radius:6px;cursor:pointer;font-size:14px;}
+      .summary-box{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;border:1px solid #ddd;padding:16px;border-radius:8px;}
+      .summary-box div{font-size:15px;}
+      .summary-box strong{font-size:22px;color:#1a6fcf;display:block;margin-top:4px;}
+      .dist-header{border-left:5px solid #1a6fcf;padding-left:12px;margin-bottom:10px;}
+      .dist-header strong{font-size:17px;}
+      .dist-header span{font-size:14px;color:#555;margin-left:10px;}
+      table{width:100%;border-collapse:collapse;font-size:15px;}
+      th{border:1px solid #ccc;padding:10px 14px;background:#f0f4f8;text-align:left;font-size:15px;}
+      th:nth-child(3), th:nth-child(4){text-align:right;}
+      td{border:1px solid #ddd;padding:10px 14px;font-size:15px;}
+      td:nth-child(3), td:nth-child(4){text-align:right;}
+      .subtotal-row td{background:#f9f9f9;color:#555;font-size:14px;padding:8px 14px;}
+      .total-row td{background:#e8f0fe;font-weight:700;font-size:15px;padding:10px 14px;}
       @media print{.top{display:none}body{margin:0}}
     </style></head><body>
     <div class="top"><button onclick="window.print()">인쇄 / PDF 저장</button></div>
     <h1>정산서</h1>
-    <p style="color:#555;margin:0 0 16px;">정산 월: ${monthLabel}</p>
+    <p style="color:#555;margin:0 0 18px;font-size:15px;">정산 월: ${monthLabel}</p>
     <div class="summary-box">
-      <div>전체 판매금액 합계<br><strong>${money(grandSales)}</strong></div>
-      <div>전체 수수료 합계<br><strong>${money(grandFee)}</strong></div>
+      <div>전체 판매금액 합계<strong>${money(grandSales)}</strong></div>
+      <div>전체 수수료 합계<strong>${money(grandFee)}</strong></div>
     </div>
     ${blocks}
-    <p style="text-align:right;color:#888;font-size:11px;margin-top:20px;">※ 본 정산서는 거래처별 협의 수수료를 기준으로 작성되었습니다.</p>
+    <p style="text-align:right;color:#888;font-size:13px;margin-top:24px;">※ 본 정산서는 거래처별 협의 수수료를 기준으로 작성되었습니다.</p>
   </body></html>`);
   popup.document.close();
 }
