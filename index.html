@@ -303,6 +303,7 @@ document.getElementById('loginPw').addEventListener('keydown', e => {
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
   await sbClient.auth.signOut();
+  clearPrivateState();
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('logoutBtn').style.display = 'none';
   document.getElementById('loginPw').value = '';
@@ -316,7 +317,8 @@ function showApp() {
 async function testConnection() {
   const el = document.getElementById('cfgStatus');
   try {
-    const { error } = await sbClient.from('hospitals').select('count').limit(1);
+    await requireCurrentUser();
+    const { error } = await sbClient.from('hospitals').select('count').eq('user_id', st.userId).limit(1);
     if (error) throw error;
     el.innerHTML = '<span style="color:#22c55e;">✓ 연결 성공!</span>';
   } catch(e) {
@@ -328,6 +330,7 @@ async function testConnection() {
 // 상태
 // =============================================
 const st = {
+  userId: null,
   items: [],
   saved: [],
   hospitals: [],
@@ -347,6 +350,23 @@ const st = {
 const $ = id => document.getElementById(id);
 const fmt = v => new Intl.NumberFormat('ko-KR', {maximumFractionDigits:0}).format(Number(v||0));
 const money = v => fmt(v) + '원';
+
+async function requireCurrentUser() {
+  const { data: { user }, error } = await sbClient.auth.getUser();
+  if (error || !user) throw new Error('로그인 정보를 확인할 수 없습니다. 다시 로그인해주세요.');
+  st.userId = user.id;
+  return user;
+}
+
+function clearPrivateState() {
+  st.userId = null;
+  st.items = [];
+  st.saved = [];
+  st.hospitals = [];
+  st.months = [];
+  st.distributors = [];
+  st.hospitalInfo = [];
+}
 
 // =============================================
 // 탭 전환
@@ -709,6 +729,7 @@ function renderMonthOverview() {
 // =============================================
 async function loadAll() {
   if (!supabase) return;
+  await requireCurrentUser();
   await Promise.all([loadCatalog(), loadMeta(), loadSaved()]);
   loadProducts();
   renderHospitalMonthSelectors();
@@ -737,9 +758,9 @@ async function loadCatalog() {
 async function loadMeta() {
   if (!supabase) return;
   const [{ data: hosp }, { data: months }, { data: dists }] = await Promise.all([
-    sbClient.from('hospitals').select('name, distributor_name').order('name'),
-    sbClient.from('months').select('month').order('month'),
-    sbClient.from('distributors').select('*').order('name'),
+    sbClient.from('hospitals').select('name, distributor_name').eq('user_id', st.userId).order('name'),
+    sbClient.from('months').select('month').eq('user_id', st.userId).order('month'),
+    sbClient.from('distributors').select('*').eq('user_id', st.userId).order('name'),
   ]);
   st.hospitalInfo = hosp || [];
   st.hospitals = (hosp||[]).map(x=>x.name);
@@ -751,7 +772,7 @@ async function loadMeta() {
 
 async function loadSaved() {
   if (!supabase) return;
-  const { data } = await sbClient.from('settlements').select('*').order('saved_at', { ascending: false });
+  const { data } = await sbClient.from('settlements').select('*').eq('user_id', st.userId).order('saved_at', { ascending: false });
   st.saved = (data||[]).map(r => ({
     ...r,
     month: normalizeMonth(r.month),
@@ -765,11 +786,12 @@ async function saveCurrent() {
   await addHospitalFn(); await addMonthFn();
   const t = currentTotals();
   const payload = {
+    user_id: st.userId,
     key: keyText(), hospital: currentHospital(), month: currentMonth(),
     items_json: st.items, total_sales: Math.round(t.sales), total_fee: Math.round(t.fee),
     total_supply: Math.round(t.supply), total_vat: Math.round(t.vat), saved_at: new Date().toISOString(),
   };
-  const { error } = await sbClient.from('settlements').upsert(payload, { onConflict: 'key' });
+  const { error } = await sbClient.from('settlements').upsert(payload, { onConflict: 'user_id,key' });
   if (error) { alert('저장 실패: ' + error.message); return; }
   await loadSaved();
   renderSavedMonthFilter(); renderSaved(); renderMonthFilter(); renderMonthOverview();
@@ -781,7 +803,7 @@ async function addHospitalFn() {
   if (!name || name === '병원') return;
   const distName = $('hospitalDistributor') ? $('hospitalDistributor').value : '';
   if (!st.hospitals.includes(name)) {
-    if (sbClient) await sbClient.from('hospitals').upsert({ name, distributor_name: distName }, { onConflict: 'name' });
+    if (sbClient) await sbClient.from('hospitals').upsert({ user_id: st.userId, name, distributor_name: distName }, { onConflict: 'user_id,name' });
     st.hospitals = uniqSorted([...st.hospitals, name]);
     st.hospitalInfo.push({ name, distributor_name: distName });
     renderHospitalMonthSelectors(); $('hospitalSelect').value = name;
@@ -795,7 +817,7 @@ async function addMonthFn() {
   const month = normalizeMonth($('monthInput').value || $('monthSelect').value);
   if (!month) return;
   if (!st.months.includes(month)) {
-    if (sbClient) await sbClient.from('months').upsert({ month }, { onConflict: 'month' });
+    if (sbClient) await sbClient.from('months').upsert({ user_id: st.userId, month }, { onConflict: 'user_id,month' });
     st.months = uniqSorted([...st.months, month]);
     renderHospitalMonthSelectors(); $('monthSelect').value = month;
     renderMonthFilter(); renderMonthOverview();
@@ -804,7 +826,7 @@ async function addMonthFn() {
 
 async function deleteSettlement(key) {
   if (!confirm('삭제하시겠어요?')) return;
-  if (sbClient) await sbClient.from('settlements').delete().eq('key', key);
+  if (sbClient) await sbClient.from('settlements').delete().eq('user_id', st.userId).eq('key', key);
   st.saved = st.saved.filter(x => x.key !== key);
   renderSavedMonthFilter(); renderSaved(); renderMonthFilter(); renderMonthOverview();
 }
@@ -946,9 +968,9 @@ async function updateDistRateInline(distName, distId, newRatePercent) {
   if (isNaN(newRate) || newRate < 0) return;
   let error;
   if (distId) {
-    ({ error } = await sbClient.from('distributors').update({ rate: newRate }).eq('id', distId));
+    ({ error } = await sbClient.from('distributors').update({ rate: newRate }).eq('user_id', st.userId).eq('id', distId));
   } else {
-    ({ error } = await sbClient.from('distributors').update({ rate: newRate }).eq('name', distName));
+    ({ error } = await sbClient.from('distributors').update({ rate: newRate }).eq('user_id', st.userId).eq('name', distName));
   }
   if (error) { alert('수정 실패: ' + error.message); return; }
   // 로컬 상태 업데이트
@@ -986,7 +1008,7 @@ function editCsoHospitalItems(key) {
       const t = currentTotals();
       const { error } = await sbClient.from('settlements').update({
         items_json: window._csoEditItems,
-      }).eq('key', window._csoEditKey);
+      }).eq('user_id', st.userId).eq('key', window._csoEditKey);
       if (error) { alert('저장 실패: ' + error.message); return; }
       closeModal();
       renderCsoOverview();
@@ -1009,7 +1031,7 @@ async function addDistFn() {
   const rate = parseFloat($('distRate').value) / 100;
   if (!name) { alert('거래처명을 입력하세요.'); return; }
   if (isNaN(rate)) { alert('수수료율을 입력하세요.'); return; }
-  const { error } = await sbClient.from('distributors').upsert({ name, rate }, { onConflict: 'name' });
+  const { error } = await sbClient.from('distributors').upsert({ user_id: st.userId, name, rate }, { onConflict: 'user_id,name' });
   if (error) { alert('저장 실패: ' + error.message); return; }
   $('distName').value = ''; $('distRate').value = '';
   await loadMeta();
@@ -1023,7 +1045,7 @@ async function editDist(id, name, rate) {
   const newRateStr = prompt('수수료율 (%)', (rate*100).toFixed(0));
   if (!newRateStr) return;
   const newRate = parseFloat(newRateStr) / 100;
-  const { error } = await sbClient.from('distributors').update({ name: newName, rate: newRate }).eq('id', id);
+  const { error } = await sbClient.from('distributors').update({ name: newName, rate: newRate }).eq('user_id', st.userId).eq('id', id);
   if (error) { alert('수정 실패: ' + error.message); return; }
   await loadMeta();
   renderDistributors();
@@ -1031,13 +1053,13 @@ async function editDist(id, name, rate) {
 
 async function deleteDist(id) {
   if (!confirm('삭제하시겠어요?')) return;
-  await sbClient.from('distributors').delete().eq('id', id);
+  await sbClient.from('distributors').delete().eq('user_id', st.userId).eq('id', id);
   await loadMeta();
   renderDistributors();
 }
 
 async function updateHospitalDist(hospitalName, distName) {
-  await sbClient.from('hospitals').update({ distributor_name: distName }).eq('name', hospitalName);
+  await sbClient.from('hospitals').update({ distributor_name: distName }).eq('user_id', st.userId).eq('name', hospitalName);
   const h = st.hospitalInfo.find(x => x.name === hospitalName);
   if (h) h.distributor_name = distName;
 }
