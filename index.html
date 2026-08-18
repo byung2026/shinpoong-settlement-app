@@ -50,6 +50,13 @@ button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
 .remember-row label{font-size:13px;color:#94a3b8;cursor:pointer;}
 .login-btn{width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(90deg,#38bdf8,#22c55e);color:#001018;font-size:16px;font-weight:700;cursor:pointer;}
 .login-error{color:#f87171;font-size:13px;margin-top:10px;text-align:center;min-height:20px;}
+.auth-screen{position:fixed;inset:0;background:linear-gradient(180deg,#020617,#0f172a 35%,#111827);z-index:1000;display:none;align-items:center;justify-content:center;}
+.auth-link{display:block;width:100%;margin-top:12px;padding:7px 0;border:none;background:transparent;color:#7dd3fc;font-size:13px;font-weight:600;text-align:center;cursor:pointer;}
+.auth-link:hover{text-decoration:underline;}
+.auth-message{font-size:13px;line-height:1.55;margin-top:12px;text-align:center;min-height:20px;color:#cbd5e1;}
+.auth-message.error{color:#f87171;}
+.auth-message.success{color:#86efac;}
+.password-guide{font-size:12px;color:#64748b;margin:-4px 0 14px;}
 /* 로그아웃 버튼 */
 #logoutBtn{position:fixed;top:16px;right:16px;z-index:100;padding:8px 16px;font-size:13px;width:auto;background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:10px;cursor:pointer;}
 </style>
@@ -74,7 +81,43 @@ button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
       <label for="rememberEmail">아이디 저장</label>
     </div>
     <button class="login-btn" id="loginBtn">로그인</button>
+    <button type="button" class="auth-link" id="forgotPasswordBtn">비밀번호를 잊으셨나요?</button>
     <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<!-- 비밀번호 재설정 메일 요청 화면 -->
+<div id="forgotPasswordScreen" class="auth-screen">
+  <div class="login-box">
+    <h2>비밀번호 재설정</h2>
+    <div class="sub">가입한 이메일을 입력하면 새 비밀번호를 설정할 수 있는 링크를 보내드립니다.</div>
+    <div class="login-field">
+      <label>이메일</label>
+      <input type="email" id="recoveryEmail" placeholder="가입한 이메일 입력" autocomplete="email">
+    </div>
+    <button type="button" class="login-btn" id="sendRecoveryBtn">재설정 메일 보내기</button>
+    <button type="button" class="auth-link" id="backToLoginBtn">로그인으로 돌아가기</button>
+    <div class="auth-message" id="recoveryMessage" aria-live="polite"></div>
+  </div>
+</div>
+
+<!-- 이메일 링크를 통해 돌아온 뒤 표시되는 새 비밀번호 화면 -->
+<div id="resetPasswordScreen" class="auth-screen">
+  <div class="login-box">
+    <h2>새 비밀번호 설정</h2>
+    <div class="sub">앞으로 사용할 새 비밀번호를 입력해주세요.</div>
+    <div class="login-field">
+      <label>새 비밀번호</label>
+      <input type="password" id="newPassword" placeholder="8자 이상 입력" autocomplete="new-password">
+    </div>
+    <div class="login-field">
+      <label>새 비밀번호 확인</label>
+      <input type="password" id="newPasswordConfirm" placeholder="한 번 더 입력" autocomplete="new-password">
+    </div>
+    <div class="password-guide">영문·숫자·특수문자를 조합한 8자 이상을 권장합니다.</div>
+    <button type="button" class="login-btn" id="updatePasswordBtn">비밀번호 변경하기</button>
+    <button type="button" class="auth-link" id="cancelResetBtn">취소하고 로그인으로</button>
+    <div class="auth-message" id="updatePasswordMessage" aria-live="polite"></div>
   </div>
 </div>
 
@@ -261,7 +304,9 @@ button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
 // =============================================
 const SUPABASE_URL = 'https://paeumfhredezpwyrirjq.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhZXVtZmhyZWRlenB3eXJpcmpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM0OTA3NzMsImV4cCI6MjA5OTA2Njc3M30.HUR4OiIuHIJBXwq13-uEUXOd9ghxRUFiOYSCfHqDES8';
+const PASSWORD_RESET_REDIRECT = 'https://byung2026.github.io/shinpoong-settlement-app/';
 let sbClient = null;
+let isPasswordRecovery = false;
 
 function initSupabase() {
   try {
@@ -279,6 +324,125 @@ if (savedEmail) {
   document.getElementById('loginEmail').value = savedEmail;
   document.getElementById('rememberEmail').checked = true;
 }
+
+function setAuthMessage(elementId, message, type = '') {
+  const el = document.getElementById(elementId);
+  el.textContent = message;
+  el.className = `auth-message${type ? ' ' + type : ''}`;
+}
+
+function showLoginScreen() {
+  document.getElementById('forgotPasswordScreen').style.display = 'none';
+  document.getElementById('resetPasswordScreen').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('logoutBtn').style.display = 'none';
+}
+
+function showForgotPasswordScreen() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('resetPasswordScreen').style.display = 'none';
+  document.getElementById('forgotPasswordScreen').style.display = 'flex';
+  document.getElementById('recoveryEmail').value = document.getElementById('loginEmail').value.trim();
+  setAuthMessage('recoveryMessage', '');
+  document.getElementById('recoveryEmail').focus();
+}
+
+function showResetPasswordScreen() {
+  isPasswordRecovery = true;
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('forgotPasswordScreen').style.display = 'none';
+  document.getElementById('resetPasswordScreen').style.display = 'flex';
+  document.getElementById('logoutBtn').style.display = 'none';
+  setAuthMessage('updatePasswordMessage', '');
+  document.getElementById('newPassword').focus();
+}
+
+function bindAuthRecoveryListener() {
+  sbClient.auth.onAuthStateChange((event) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      queueMicrotask(showResetPasswordScreen);
+    }
+  });
+}
+
+document.getElementById('forgotPasswordBtn').addEventListener('click', showForgotPasswordScreen);
+document.getElementById('backToLoginBtn').addEventListener('click', showLoginScreen);
+
+document.getElementById('sendRecoveryBtn').addEventListener('click', async () => {
+  const email = document.getElementById('recoveryEmail').value.trim();
+  const button = document.getElementById('sendRecoveryBtn');
+  setAuthMessage('recoveryMessage', '');
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) {
+    setAuthMessage('recoveryMessage', '올바른 이메일 주소를 입력해주세요.', 'error');
+    return;
+  }
+  button.disabled = true;
+  button.textContent = '메일 보내는 중...';
+  const { error } = await sbClient.auth.resetPasswordForEmail(email, {
+    redirectTo: PASSWORD_RESET_REDIRECT,
+  });
+  button.disabled = false;
+  button.textContent = '재설정 메일 보내기';
+  if (error) {
+    setAuthMessage('recoveryMessage', '메일을 보내지 못했습니다. 잠시 후 다시 시도해주세요.', 'error');
+    return;
+  }
+  setAuthMessage('recoveryMessage', '입력한 이메일이 등록되어 있다면 재설정 링크가 발송됩니다. 스팸함도 확인해주세요.', 'success');
+});
+
+document.getElementById('recoveryEmail').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('sendRecoveryBtn').click();
+});
+
+document.getElementById('updatePasswordBtn').addEventListener('click', async () => {
+  const password = document.getElementById('newPassword').value;
+  const confirmPassword = document.getElementById('newPasswordConfirm').value;
+  const button = document.getElementById('updatePasswordBtn');
+  setAuthMessage('updatePasswordMessage', '');
+  if (password.length < 8) {
+    setAuthMessage('updatePasswordMessage', '비밀번호는 8자 이상으로 입력해주세요.', 'error');
+    return;
+  }
+  if (password !== confirmPassword) {
+    setAuthMessage('updatePasswordMessage', '비밀번호가 서로 일치하지 않습니다.', 'error');
+    return;
+  }
+  button.disabled = true;
+  button.textContent = '변경하는 중...';
+  const { data: { session } } = await sbClient.auth.getSession();
+  if (!session) {
+    button.disabled = false;
+    button.textContent = '비밀번호 변경하기';
+    setAuthMessage('updatePasswordMessage', '재설정 링크가 만료됐습니다. 메일을 다시 받아주세요.', 'error');
+    return;
+  }
+  const { error } = await sbClient.auth.updateUser({ password });
+  if (error) {
+    button.disabled = false;
+    button.textContent = '비밀번호 변경하기';
+    setAuthMessage('updatePasswordMessage', '링크가 만료되었거나 비밀번호를 변경하지 못했습니다. 재설정 메일을 다시 받아주세요.', 'error');
+    return;
+  }
+  setAuthMessage('updatePasswordMessage', '비밀번호가 변경됐습니다. 새 비밀번호로 다시 로그인해주세요.', 'success');
+  await sbClient.auth.signOut();
+  clearPrivateState();
+  isPasswordRecovery = false;
+  window.history.replaceState({}, document.title, window.location.pathname);
+  document.getElementById('loginPw').value = '';
+  setTimeout(showLoginScreen, 1200);
+});
+
+document.getElementById('newPasswordConfirm').addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('updatePasswordBtn').click();
+});
+
+document.getElementById('cancelResetBtn').addEventListener('click', async () => {
+  await sbClient.auth.signOut();
+  clearPrivateState();
+  isPasswordRecovery = false;
+  window.history.replaceState({}, document.title, window.location.pathname);
+  showLoginScreen();
+});
 
 document.getElementById('loginBtn').addEventListener('click', async () => {
   const email = document.getElementById('loginEmail').value.trim();
@@ -1471,9 +1635,15 @@ $('monthFilter').addEventListener('change', e => { st.monthFilter = e.target.val
 // =============================================
 async function initApp() {
   initSupabase();
+  bindAuthRecoveryListener();
+  const recoveryInUrl = new URLSearchParams(window.location.hash.slice(1)).get('type') === 'recovery';
+  if (recoveryInUrl) {
+    showResetPasswordScreen();
+    return;
+  }
   // 기존 세션 확인 (로그인 유지)
   const { data: { session } } = await sbClient.auth.getSession();
-  if (session) {
+  if (session && !isPasswordRecovery) {
     showApp();
     await loadAll();
   }
