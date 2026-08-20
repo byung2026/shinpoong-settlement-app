@@ -24,6 +24,10 @@ button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
 .item{background:#020617;border:1px solid #334155;border-radius:14px;padding:12px;margin-bottom:10px}
 .summary{background:linear-gradient(135deg,rgba(56,189,248,.12),rgba(34,197,94,.12));border:1px solid rgba(56,189,248,.25);border-radius:14px;padding:12px}
 .actions{display:flex;gap:8px;flex-wrap:wrap} .actions>*{flex:1;min-width:120px}
+.cso-selection-bar{display:none;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border:1px solid rgba(56,189,248,.28);border-radius:12px;background:rgba(56,189,248,.08)}
+.cso-select-label{display:inline-flex;align-items:center;gap:8px;font-weight:700;cursor:pointer}
+.cso-select-label input,.cso-dist-checkbox{width:18px;height:18px;min-width:18px;margin:0;accent-color:#38bdf8;cursor:pointer}
+.cso-dist-title{display:flex;align-items:flex-start;gap:10px}
 .table-wrap{overflow-x:auto} table{width:100%;border-collapse:collapse;font-size:14px} th,td{padding:10px 8px;border-bottom:1px solid rgba(148,163,184,.12);text-align:left;white-space:nowrap} th{color:#cbd5e1;font-weight:600}
 .tab-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
 .tab-btn{flex:1;min-width:100px;padding:10px;border-radius:12px;border:1px solid #334155;background:#020617;color:#94a3b8;font-weight:600;cursor:pointer;font-size:14px}
@@ -237,7 +241,14 @@ button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
       <h3>CSO 정산서</h3>
       <div class="grid g2" style="margin-bottom:12px;">
         <div><div class="small">정산 월 선택</div><select id="csoMonthFilter"></select></div>
-        <div style="display:flex;align-items:flex-end;"><button id="printCso" class="sec">정산서 인쇄/PDF</button></div>
+        <div style="display:flex;align-items:flex-end;"><button id="printCso" class="sec">선택 거래처 인쇄/PDF</button></div>
+      </div>
+      <div id="csoSelectionBar" class="cso-selection-bar">
+        <label class="cso-select-label" for="csoSelectAll">
+          <input type="checkbox" id="csoSelectAll">
+          <span>전체 선택</span>
+        </label>
+        <div id="csoSelectedCount" class="small">선택 0개</div>
       </div>
       <div id="csoOverview"></div>
     </div>
@@ -509,6 +520,10 @@ const st = {
   distributors: [],
   hospitalInfo: [],
   csoMonthFilter: 'ALL',
+  csoSelectedDistributors: [],
+  csoAvailableDistributors: [],
+  csoSelectionMonth: null,
+  csoSelectionInitialized: false,
 };
 
 const $ = id => document.getElementById(id);
@@ -530,6 +545,10 @@ function clearPrivateState() {
   st.months = [];
   st.distributors = [];
   st.hospitalInfo = [];
+  st.csoSelectedDistributors = [];
+  st.csoAvailableDistributors = [];
+  st.csoSelectionMonth = null;
+  st.csoSelectionInitialized = false;
 }
 
 // =============================================
@@ -1240,32 +1259,114 @@ function renderCsoMonthFilter() {
   sel.value = cur;
 }
 
-function renderCsoOverview() {
-  const month = $('csoMonthFilter') ? $('csoMonthFilter').value : 'ALL';
-  st.csoMonthFilter = month;
+function getCsoGroupedRows(month) {
   const rows = st.saved.filter(r => month === 'ALL' || r.month === month);
-  if (!rows.length) { $('csoOverview').innerHTML = '<div class="small">저장된 정산이 없습니다.</div>'; return; }
-
-  // 거래처별 그룹핑 (거래처 미연결 병원 제외)
   const grouped = {};
   rows.forEach(row => {
     const hInfo = st.hospitalInfo.find(h => h.name === row.hospital);
     const distName = hInfo?.distributor_name;
-    if (!distName) return; // 거래처 미연결 제외
+    if (!distName) return;
     if (!grouped[distName]) grouped[distName] = [];
     grouped[distName].push(row);
   });
+  return { rows, grouped };
+}
+
+function filterCsoGroupedRows(grouped, selectedNames) {
+  const selected = new Set(selectedNames || []);
+  return Object.fromEntries(
+    Object.entries(grouped).filter(([distName]) => selected.has(distName))
+  );
+}
+
+function syncCsoSelection(month, availableNames) {
+  const previousAvailable = st.csoAvailableDistributors || [];
+  const previousSelected = st.csoSelectedDistributors || [];
+  const monthChanged = st.csoSelectionMonth !== month;
+  const wasAllSelected = st.csoSelectionInitialized && previousAvailable.length > 0 &&
+    previousAvailable.every(name => previousSelected.includes(name));
+
+  if (monthChanged || !st.csoSelectionInitialized) {
+    st.csoSelectedDistributors = [...availableNames];
+  } else {
+    st.csoSelectedDistributors = previousSelected.filter(name => availableNames.includes(name));
+    if (wasAllSelected) {
+      availableNames.forEach(name => {
+        if (!st.csoSelectedDistributors.includes(name)) st.csoSelectedDistributors.push(name);
+      });
+    }
+  }
+
+  st.csoAvailableDistributors = [...availableNames];
+  st.csoSelectionMonth = month;
+  st.csoSelectionInitialized = true;
+}
+
+function clearCsoSelectionUi(month) {
+  st.csoSelectedDistributors = [];
+  st.csoAvailableDistributors = [];
+  st.csoSelectionMonth = month;
+  st.csoSelectionInitialized = false;
+  renderCsoSelectionBar();
+}
+
+function renderCsoSelectionBar() {
+  const bar = $('csoSelectionBar');
+  const selectAll = $('csoSelectAll');
+  const countLabel = $('csoSelectedCount');
+  const printButton = $('printCso');
+  if (!bar || !selectAll || !countLabel || !printButton) return;
+
+  const available = st.csoAvailableDistributors || [];
+  const selected = (st.csoSelectedDistributors || []).filter(name => available.includes(name));
+  bar.style.display = available.length ? 'flex' : 'none';
+  countLabel.textContent = `선택 ${selected.length}개 / 전체 ${available.length}개`;
+  selectAll.checked = available.length > 0 && selected.length === available.length;
+  selectAll.indeterminate = selected.length > 0 && selected.length < available.length;
+  printButton.textContent = selected.length > 0
+    ? `선택 ${selected.length}개 거래처 인쇄/PDF`
+    : '선택 거래처 인쇄/PDF';
+}
+
+function setAllCsoDistributorSelection(checked) {
+  st.csoSelectedDistributors = checked ? [...st.csoAvailableDistributors] : [];
+  $('csoOverview').querySelectorAll('.cso-dist-checkbox').forEach(box => { box.checked = checked; });
+  renderCsoSelectionBar();
+}
+
+function toggleCsoDistributorSelection(distName, checked) {
+  const selected = new Set(st.csoSelectedDistributors || []);
+  if (checked) selected.add(distName);
+  else selected.delete(distName);
+  st.csoSelectedDistributors = [...selected].filter(name => st.csoAvailableDistributors.includes(name));
+  renderCsoSelectionBar();
+}
+
+function renderCsoOverview() {
+  const month = $('csoMonthFilter') ? $('csoMonthFilter').value : 'ALL';
+  st.csoMonthFilter = month;
+  const { rows, grouped } = getCsoGroupedRows(month);
+  if (!rows.length) {
+    clearCsoSelectionUi(month);
+    $('csoOverview').innerHTML = '<div class="small">저장된 정산이 없습니다.</div>';
+    return;
+  }
 
   if (!Object.keys(grouped).length) {
+    clearCsoSelectionUi(month);
     $('csoOverview').innerHTML = '<div class="small">거래처가 연결된 병원이 없습니다. 아래 "병원-거래처 연결"에서 설정해주세요.</div>';
     return;
   }
+
+  syncCsoSelection(month, Object.keys(grouped));
+  renderCsoSelectionBar();
 
   let html = '';
   Object.entries(grouped).forEach(([distName, dRows]) => {
     const dist = st.distributors.find(d => d.name === distName);
     const rate = dist ? dist.rate : 0;
     const distId = dist ? dist.id : '';
+    const isSelected = st.csoSelectedDistributors.includes(distName);
     let totalSales = 0, totalFee = 0;
     const hospBlocks = dRows.map(row => {
       let rowSales = 0;
@@ -1292,14 +1393,17 @@ function renderCsoOverview() {
 
     html += `<div class="item" style="margin-bottom:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-        <div>
-          <div style="font-size:17px;font-weight:800;">${distName}</div>
-          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-            <span class="small">수수료율</span>
-            <input type="number" value="${(rate*100).toFixed(1)}" min="0" max="100" step="0.1"
-              style="width:74px;text-align:center;padding:5px 8px;font-size:14px;font-weight:700;border-radius:8px;"
-              onchange="updateDistRateInline('${distName}',${distId},this.value)">
-            <span class="small">%</span>
+        <div class="cso-dist-title">
+          <input type="checkbox" class="cso-dist-checkbox" data-cso-dist="${encodeURIComponent(distName)}" ${isSelected ? 'checked' : ''}>
+          <div>
+            <div style="font-size:17px;font-weight:800;">${distName}</div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+              <span class="small">수수료율</span>
+              <input type="number" value="${(rate*100).toFixed(1)}" min="0" max="100" step="0.1"
+                style="width:74px;text-align:center;padding:5px 8px;font-size:14px;font-weight:700;border-radius:8px;"
+                onchange="updateDistRateInline('${distName}',${distId},this.value)">
+              <span class="small">%</span>
+            </div>
           </div>
         </div>
         <div style="text-align:right;">
@@ -1325,21 +1429,21 @@ function renderCsoOverview() {
     </div>`;
   });
   $('csoOverview').innerHTML = html;
+  $('csoOverview').querySelectorAll('.cso-dist-checkbox').forEach(box => {
+    box.addEventListener('change', () => {
+      toggleCsoDistributorSelection(decodeURIComponent(box.dataset.csoDist), box.checked);
+    });
+  });
 }
 
 function printCsoSettlement() {
   const month = st.csoMonthFilter;
-  const rows = st.saved.filter(r => month === 'ALL' || r.month === month);
+  const { rows, grouped: allGrouped } = getCsoGroupedRows(month);
   if (!rows.length) { alert('정산 데이터가 없습니다.'); return; }
 
-  const grouped = {};
-  rows.forEach(row => {
-    const hInfo = st.hospitalInfo.find(h => h.name === row.hospital);
-    const distName = hInfo?.distributor_name;
-    if (!distName) return; // 거래처 미연결 제외
-    if (!grouped[distName]) grouped[distName] = [];
-    grouped[distName].push(row);
-  });
+  if (!st.csoSelectedDistributors.length) { alert('출력할 거래처를 선택해주세요.'); return; }
+  const grouped = filterCsoGroupedRows(allGrouped, st.csoSelectedDistributors);
+  if (!Object.keys(grouped).length) { alert('선택한 거래처의 정산 데이터가 없습니다.'); return; }
 
   let blocks = '';
   let grandSales = 0, grandFee = 0;
@@ -1387,6 +1491,7 @@ function printCsoSettlement() {
       </div>`;
   });
 
+  const selectedDistributorCount = Object.keys(grouped).length;
   const monthLabel = month === 'ALL' ? '전체' : month.replace('-','년 ') + '월';
   const popup = window.open('','_blank');
   if (!popup) { alert('팝업 차단됨'); return; }
@@ -1414,10 +1519,10 @@ function printCsoSettlement() {
     </style></head><body>
     <div class="top"><button onclick="window.print()">인쇄 / PDF 저장</button></div>
     <h1>정산서</h1>
-    <p style="color:#555;margin:0 0 18px;font-size:15px;">정산 월: ${monthLabel}</p>
+    <p style="color:#555;margin:0 0 18px;font-size:15px;">정산 월: ${monthLabel} · 선택 거래처: ${selectedDistributorCount}곳</p>
     <div class="summary-box">
-      <div>전체 판매금액 합계<strong>${money(grandSales)}</strong></div>
-      <div>전체 수수료 합계<strong>${money(grandFee)}</strong></div>
+      <div>선택 판매금액 합계<strong>${money(grandSales)}</strong></div>
+      <div>선택 수수료 합계<strong>${money(grandFee)}</strong></div>
     </div>
     ${blocks}
     <p style="text-align:right;color:#888;font-size:13px;margin-top:24px;">※ 본 정산서는 거래처별 협의 수수료를 기준으로 작성되었습니다.</p>
@@ -1619,6 +1724,7 @@ $('downloadMonthPdf').addEventListener('click', openMonthPdf);
 $('addHospital').addEventListener('click', addHospitalFn);
 $('addDist').addEventListener('click', addDistFn);
 $('csoMonthFilter').addEventListener('change', e => { st.csoMonthFilter = e.target.value; renderCsoOverview(); });
+$('csoSelectAll').addEventListener('change', e => setAllCsoDistributorSelection(e.target.checked));
 $('printCso').addEventListener('click', printCsoSettlement);
 $('addMonth').addEventListener('click', addMonthFn);
 $('hospitalSelect').addEventListener('change', e => { $('hospitalInput').value = e.target.value; updateHeader(); loadProducts(); });
