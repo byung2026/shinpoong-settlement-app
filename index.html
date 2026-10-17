@@ -63,6 +63,29 @@ button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
 .password-guide{font-size:12px;color:#64748b;margin:-4px 0 14px;}
 /* 로그아웃 버튼 */
 #logoutBtn{position:fixed;top:16px;right:16px;z-index:100;padding:8px 16px;font-size:13px;width:auto;background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:10px;cursor:pointer;}
+/* 엑셀 업로드 */
+.drop-zone{display:block;border:2px dashed #334155;border-radius:14px;padding:28px 16px;text-align:center;color:#94a3b8;cursor:pointer;transition:border-color .15s,background .15s}
+.drop-zone:hover,.drop-zone.drag{border-color:#38bdf8;background:rgba(56,189,248,.08);color:#e2e8f0}
+.drop-zone b{color:#e2e8f0}
+.up-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
+.up-metric{background:#020617;border:1px solid #334155;border-radius:12px;padding:10px 12px;min-width:0}
+.up-metric .k{font-size:12px;color:#94a3b8}
+.up-metric .v{font-size:18px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.check{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid rgba(148,163,184,.12);font-size:14px;line-height:1.5}
+.check:last-child{border-bottom:none}
+.check .ic{flex:0 0 20px;font-weight:800;text-align:center}
+.check>div:last-child{min-width:0;flex:1}
+.check.ok .ic{color:#22c55e}.check.warn .ic{color:#f59e0b}.check.err .ic{color:#ef4444}.check.info .ic{color:#38bdf8}
+.check details{margin-top:6px}.check summary{cursor:pointer;color:#7dd3fc;font-size:12px}
+.check .table-wrap{margin-top:6px;max-height:280px;overflow:auto}
+.badge-over{background:#78350f;color:#fde68a}
+.badge-auto{background:#1e3a5f;color:#bae6fd}
+.badge-mem{background:#3b0764;color:#e9d5ff}
+th.num,td.num{text-align:right;font-variant-numeric:tabular-nums}
+table select{padding:8px 34px 8px 10px;font-size:13px;min-width:180px}
+.inline-opts{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0}
+.inline-opts label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:14px}
+.inline-opts input{width:auto;margin:0;accent-color:#38bdf8}
 </style>
 </head>
 <body>
@@ -135,6 +158,7 @@ button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
   <!-- 탭 바 -->
   <div class="tab-bar">
     <button class="tab-btn active" data-tab="settlement">정산 입력</button>
+    <button class="tab-btn" data-tab="upload">엑셀 업로드</button>
     <button class="tab-btn" data-tab="monthly">월별 현황</button>
     <button class="tab-btn" data-tab="cso">CSO 정산</button>
     <button class="tab-btn" data-tab="admin">제품 관리</button>
@@ -182,7 +206,7 @@ button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
       <div class="grid g3">
         <div><div class="small">제품 검색</div><input id="search" placeholder="제품명 검색"></div>
         <div><div class="small">제품명</div><select id="product"></select></div>
-        <div><div class="small">수량</div><input id="qty" type="number" min="1" value="1"></div>
+        <div><div class="small">수량</div><input id="qty" type="number" min="0" step="any" value="1"></div>
       </div>
       <div id="methodRow" style="display:none;margin-top:10px;">
         <div class="small" style="margin-bottom:6px;">비급여 거래방식</div>
@@ -217,6 +241,21 @@ button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
       <div class="card"><h3>정산 품목</h3><div id="items"></div></div>
       <div class="card"><h3>요약</h3><div id="summaryBox"></div></div>
     </div>
+  </div>
+
+  <!-- ===== 탭: 엑셀 업로드 ===== -->
+  <div id="tab-upload" class="tab-content">
+    <div class="card">
+      <h3>정산 엑셀 업로드</h3>
+      <div class="small" style="margin-bottom:12px;">거래처에서 받은 정산 엑셀(.xlsx)을 올리면 병원·처방월별 정산서로 자동 변환합니다. 단가와 수수료율은 엑셀 값을 그대로 쓰고, 저장 전에 미리보기로 확인할 수 있습니다.</div>
+      <label id="upDrop" class="drop-zone" for="upFile">
+        <div style="font-size:15px;"><b>엑셀 파일을 여기로 끌어오거나 눌러서 선택</b></div>
+        <div class="small" style="margin-top:6px;">.xlsx / .xls · 처방처명, 처방월, 품목명, 단가, 기본수수료(%), 원내·원외 입력수량 열이 필요합니다</div>
+      </label>
+      <input type="file" id="upFile" accept=".xlsx,.xls" style="display:none">
+      <div id="upStatus" class="small" style="margin-top:10px;" aria-live="polite"></div>
+    </div>
+    <div id="upPreview"></div>
   </div>
 
   <!-- ===== 탭2: 월별 현황 ===== -->
@@ -524,11 +563,20 @@ const st = {
   csoAvailableDistributors: [],
   csoSelectionMonth: null,
   csoSelectionInitialized: false,
+  upload: null,
+  loadedKey: null, // 정산 입력 화면에 불러온 정산서 key (다른 key로 저장하면 복사로 봄)
 };
 
 const $ = id => document.getElementById(id);
 const fmt = v => new Intl.NumberFormat('ko-KR', {maximumFractionDigits:0}).format(Number(v||0));
 const money = v => fmt(v) + '원';
+// 수량은 0.5정 같은 소수점 처방이 있으므로 소수점까지 표시
+const fmtQty = v => new Intl.NumberFormat('ko-KR', {maximumFractionDigits:2}).format(Number(v||0));
+const escapeHtml = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// onclick="fn(${jsArg(x)})" 처럼 HTML 속성 안의 함수 인자로 안전하게 넣기 (따옴표·태그가 든 이름도 안전)
+const jsArg = v => escapeHtml(JSON.stringify(String(v ?? '')));
+// 수수료율 표시: 42.5% 같은 소수 요율이 43%로 반올림되어 보이지 않도록 소수 1자리까지
+const fmtRate = r => new Intl.NumberFormat('ko-KR', {maximumFractionDigits:1}).format(Math.round(Number(r||0) * 10) / 10);
 
 async function requireCurrentUser() {
   const { data: { user }, error } = await sbClient.auth.getUser();
@@ -549,6 +597,12 @@ function clearPrivateState() {
   st.csoAvailableDistributors = [];
   st.csoSelectionMonth = null;
   st.csoSelectionInitialized = false;
+  st.upload = null;
+  st.loadedKey = null;
+  const upPreview = document.getElementById('upPreview');
+  if (upPreview) upPreview.innerHTML = '';
+  const upStatus = document.getElementById('upStatus');
+  if (upStatus) upStatus.textContent = '';
 }
 
 // =============================================
@@ -562,6 +616,7 @@ function switchTab(name, btn) {
   if (name === 'admin') renderAdminLists();
   if (name === 'monthly') renderMonthOverview();
   if (name === 'cso') { renderDistributors(); renderCsoOverview(); }
+  if (name === 'upload' && st.upload) renderUploadPreview();
 }
 
 // =============================================
@@ -637,8 +692,21 @@ function getActiveProducts(month) {
 // =============================================
 // 계산
 // =============================================
+function hasFixedRate(item) {
+  return item && item.fixedRate !== undefined && item.fixedRate !== null && item.fixedRate !== '';
+}
+
 function calc(item, month) {
   const m = month || currentMonth();
+  // 엑셀 업로드 품목: 엑셀의 기본수수료(%)를 그대로 사용 (등록 요율·+1% 가산 미적용)
+  if (hasFixedRate(item)) {
+    const totalRate = Number(item.fixedRate) || 0;
+    const sales = item.unitPrice * item.quantity;
+    const fee = sales * totalRate;
+    const supply = fee / 1.1;
+    const vat = fee - supply;
+    return { sales, fee, supply, vat, rate: totalRate * 100 };
+  }
   if (item.type === 'noncovered' && item.method === 'B') {
     const sales = (item.shippingPrice || 0) * item.quantity;
     return { sales, fee: 0, supply: 0, vat: 0, rate: 0 };
@@ -772,11 +840,26 @@ function addItemFn() {
   loadProducts(); render();
 }
 
-function removeItem(k) { st.items = st.items.filter(x => x._k !== k); render(); }
-function setQuantity(k, v) { st.items = st.items.map(x => x._k===k ? {...x, quantity: Math.max(0,Number(v))} : x); render(); }
-function setExtraRate(k, v) { st.items = st.items.map(x => x._k===k ? {...x, extraRate: Number(v)} : x); render(); }
+function removeItem(k) {
+  const gone = st.items.find(x => x._k === k);
+  st.items = st.items.filter(x => x._k !== k);
+  // 엑셀 품목을 지우면 같은 파일의 나머지 품목도 '직접 입력 품목'으로 → 같은 파일을 다시 올릴 때 지운 품목을 몰래 되살리지 않고 먼저 묻는다
+  if (gone && gone.source === 'excel') st.items = st.items.map(x => x.batch === gone.batch ? toManualItem(x) : x);
+  render();
+}
+// 엑셀로 올린 품목을 사람이 수정하거나 다른 정산서로 복사하면 '직접 입력 품목'으로 바꾼다.
+// (다음 엑셀 업로드가 수정 내용을 몰래 되돌리거나, 복사본을 다른 파일 품목으로 보고 중복으로 더하지 않도록)
+function toManualItem(it) {
+  if (!it || it.source !== 'excel') return it;
+  const { source, batch, batchGroup, batchLabel, ...rest } = it;
+  return rest;
+}
+function setQuantity(k, v) { st.items = st.items.map(x => x._k===k ? toManualItem({...x, quantity: Math.max(0,Number(v))}) : x); render(); }
+// 입력칸은 % 단위 → 저장은 소수 단위 (예: 1 입력 → 0.01)
+function setExtraRate(k, v) { st.items = st.items.map(x => x._k===k ? toManualItem({...x, extraRate: (Number(v)||0) / 100}) : x); render(); }
+function setFixedRate(k, v) { st.items = st.items.map(x => x._k===k ? toManualItem({...x, fixedRate: Math.max(0, Number(v)||0) / 100}) : x); render(); }
 function setSettlementPerUnit(k, v) { st.items = st.items.map(x => x._k===k ? {...x, settlementPerUnit: Number(v)} : x); render(); }
-window.removeItem = removeItem; window.setQuantity = setQuantity; window.setExtraRate = setExtraRate; window.setSettlementPerUnit = setSettlementPerUnit;
+window.removeItem = removeItem; window.setQuantity = setQuantity; window.setExtraRate = setExtraRate; window.setFixedRate = setFixedRate; window.setSettlementPerUnit = setSettlementPerUnit;
 
 // =============================================
 // 렌더링
@@ -788,20 +871,25 @@ function render() {
   } else {
     $('items').innerHTML = st.items.map(item => {
       const c = calc(item, m);
-      const isCov = item.type === 'covered';
-      const isNonA = item.type === 'noncovered' && item.method === 'A';
-      const isNonB = item.type === 'noncovered' && item.method === 'B';
-      const badge = isNonB ? '[비급여·방식B] ' : (isNonA ? '[비급여·방식A] ' : '');
+      const isFixed = hasFixedRate(item);
+      const isCov = item.type === 'covered' && !isFixed;
+      const isNonA = !isFixed && item.type === 'noncovered' && item.method === 'A';
+      const isNonB = !isFixed && item.type === 'noncovered' && item.method === 'B';
+      const badge = isFixed ? (item.source === 'excel' ? '[엑셀] ' : '[엑셀 요율] ') : (isNonB ? '[비급여·방식B] ' : (isNonA ? '[비급여·방식A] ' : ''));
       let rateBreakdown;
-      if (isNonB) rateBreakdown = `수수료 없음 (출하가 ${fmt(item.shippingPrice||0)}원)`;
+      if (isFixed) rateBreakdown = `수수료 ${c.rate.toFixed(1)}% (엑셀 요율)`;
+      else if (isNonB) rateBreakdown = `수수료 없음 (출하가 ${fmt(item.shippingPrice||0)}원)`;
       else if (isNonA) rateBreakdown = `1개당 정산 ${fmt(item.settlementPerUnit||0)}원`;
       else rateBreakdown = `수수료 ${c.rate.toFixed(1)}%`;
-      const extraInput = isCov ? `<div><div class="small" style="margin-bottom:6px;">추가 수수료(%)</div><input type="number" step="0.5" value="${item.extraRate||0}" onchange="setExtraRate('${item._k}',this.value)" style="text-align:center;"/></div>` : '';
+      // extraRate·fixedRate는 소수(0.01 = 1%)로 저장, 입력칸은 %로 표시
+      const pct = v => +(Number(v||0) * 100).toFixed(4);
+      const extraInput = isCov ? `<div><div class="small" style="margin-bottom:6px;">추가 수수료(%)</div><input type="number" step="0.5" value="${pct(item.extraRate)}" onchange="setExtraRate('${item._k}',this.value)" style="text-align:center;"/></div>` : '';
+      const fixedInput = isFixed ? `<div><div class="small" style="margin-bottom:6px;">수수료율(%) · 엑셀 기준</div><input type="number" step="any" min="0" value="${pct(item.fixedRate)}" onchange="setFixedRate('${item._k}',this.value)" style="text-align:center;"/></div>` : '';
       const settleInput = isNonA ? `<div><div class="small" style="margin-bottom:6px;">1개당 정산금액(원)</div><input type="number" min="0" value="${item.settlementPerUnit||0}" onchange="setSettlementPerUnit('${item._k}',this.value)" style="text-align:center;"/></div>` : '';
       return `<div class="item">
-        <div style="font-weight:800;font-size:16px">${badge}${item.name}</div>
-        <div class="small">${item.indication||''} · 수량 ${fmt(item.quantity)} · 단가 ${fmt(item.unitPrice)}원 · ${rateBreakdown}</div>
-        <div style="margin:10px 0 6px;"><div class="grid g2"><div><div class="small" style="margin-bottom:6px;">수량 수정</div><input type="number" min="0" value="${item.quantity}" onchange="setQuantity('${item._k}',this.value)" style="text-align:center;"/></div>${extraInput}${settleInput}</div></div>
+        <div style="font-weight:800;font-size:16px">${badge}${escapeHtml(item.name)}</div>
+        <div class="small">${escapeHtml(item.indication||'')} · 수량 ${fmtQty(item.quantity)} · 단가 ${fmt(item.unitPrice)}원 · ${rateBreakdown}</div>
+        <div style="margin:10px 0 6px;"><div class="grid g2"><div><div class="small" style="margin-bottom:6px;">수량 수정</div><input type="number" min="0" step="any" value="${item.quantity}" onchange="setQuantity('${item._k}',this.value)" style="text-align:center;"/></div>${extraInput}${fixedInput}${settleInput}</div></div>
         <div class="metric"><span>판매금액</span><b>${money(c.sales)}</b></div>
         <div class="metric"><span>수수료(부가세 포함)</span><b>${money(c.fee)}</b></div>
         <div class="metric"><span>공급가액</span><b>${money(c.supply)}</b></div>
@@ -830,8 +918,8 @@ function render() {
 // 병원/월 선택기 렌더링
 // =============================================
 function renderHospitalMonthSelectors() {
-  $('hospitalSelect').innerHTML = st.hospitals.map(h => `<option value="${h}">${h}</option>`).join('');
-  $('monthSelect').innerHTML = st.months.map(m => `<option value="${m}">${m}</option>`).join('');
+  $('hospitalSelect').innerHTML = st.hospitals.map(h => `<option value="${escapeHtml(h)}">${escapeHtml(h)}</option>`).join('');
+  $('monthSelect').innerHTML = st.months.map(m => `<option value="${escapeHtml(m)}">${escapeHtml(m)}</option>`).join('');
 }
 
 function renderSavedMonthFilter() {
@@ -853,13 +941,13 @@ function renderSaved() {
   if (!list.length) { $('saved').innerHTML = '<div class="small">저장된 정산이 없습니다.</div>'; return; }
   $('saved').innerHTML = list.map(item => `
     <div class="item">
-      <div style="font-weight:800">${item.title}</div>
+      <div style="font-weight:800">${escapeHtml(item.title)}</div>
       <div class="small">${(item.items_json||[]).length}개 품목 · ${(item.saved_at||'').slice(0,16).replace('T',' ')}</div>
       <div class="actions" style="margin-top:10px;">
-        <button onclick="loadSettlement('${item.key}')">불러오기</button>
-        <button class="sec" onclick="duplicateSettlement('${item.key}')">복사</button>
-        <button class="alt" onclick="copyToNextMonth('${item.key}')">다음달 복사</button>
-        <button class="del" onclick="deleteSettlement('${item.key}')">삭제</button>
+        <button onclick="loadSettlement(${jsArg(item.key)})">불러오기</button>
+        <button class="sec" onclick="duplicateSettlement(${jsArg(item.key)})">복사</button>
+        <button class="alt" onclick="copyToNextMonth(${jsArg(item.key)})">다음달 복사</button>
+        <button class="del" onclick="deleteSettlement(${jsArg(item.key)})">삭제</button>
       </div>
     </div>`).join('');
 }
@@ -874,13 +962,13 @@ function renderMonthOverview() {
     const detailRows = items.map(item => {
       const c = calc(item, row.month);
       s+=c.sales; f+=c.fee; p+=c.supply; v+=c.vat;
-      return `<tr><td>${item.name}</td><td>${item.quantity}</td><td>${fmt(item.unitPrice)}원</td><td>${c.rate.toFixed(0)}%</td><td>${money(c.sales)}</td><td>${money(c.fee)}</td><td>${money(c.supply)}</td><td>${money(c.vat)}</td></tr>`;
+      return `<tr><td>${escapeHtml(item.name)}</td><td>${fmtQty(item.quantity)}</td><td>${fmt(item.unitPrice)}원</td><td>${fmtRate(c.rate)}%</td><td>${money(c.sales)}</td><td>${money(c.fee)}</td><td>${money(c.supply)}</td><td>${money(c.vat)}</td></tr>`;
     }).join('');
     gs+=s; gf+=f; gp+=p; gv+=v;
     return `<div class="item" style="margin-bottom:14px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <div><div style="font-size:18px;font-weight:800;">${row.hospital}</div><div class="small">정산월 ${row.month} · ${items.length}개 품목</div></div>
-        <button onclick="loadSettlement('${row.key}')" style="width:auto;padding:8px 16px;">열기</button>
+        <div><div style="font-size:18px;font-weight:800;">${escapeHtml(row.hospital)}</div><div class="small">정산월 ${escapeHtml(row.month)} · ${items.length}개 품목</div></div>
+        <button onclick="loadSettlement(${jsArg(row.key)})" style="width:auto;padding:8px 16px;">열기</button>
       </div>
       <div class="grid g2" style="margin-top:10px;">
         <div class="summary">
@@ -967,6 +1055,8 @@ async function loadSaved() {
 async function saveCurrent() {
   if (!supabase) { alert('Supabase 설정을 먼저 해주세요.'); return; }
   await addHospitalFn(); await addMonthFn();
+  // 불러온 정산서와 다른 병원·월로 저장하면 엑셀 품목은 복사본 → 직접 입력 품목으로 저장
+  if (st.loadedKey !== keyText()) st.items = st.items.map(toManualItem);
   const t = currentTotals();
   const payload = {
     user_id: st.userId,
@@ -976,6 +1066,7 @@ async function saveCurrent() {
   };
   const { error } = await sbClient.from('settlements').upsert(payload, { onConflict: 'user_id,key' });
   if (error) { alert('저장 실패: ' + error.message); return; }
+  st.loadedKey = keyText();
   await loadSaved();
   renderSavedMonthFilter(); renderSaved(); renderMonthFilter(); renderMonthOverview();
   alert('저장되었습니다!');
@@ -1018,6 +1109,7 @@ function loadSettlement(key) {
   const found = st.saved.find(x => x.key === key); if (!found) return;
   $('hospitalInput').value = found.hospital; $('monthInput').value = found.month;
   st.items = (found.items_json||[]).map(x => ({...x, _k: String(Date.now()) + Math.random()}));
+  st.loadedKey = key;
   if (!st.hospitals.includes(found.hospital)) st.hospitals = uniqSorted([...st.hospitals, found.hospital]);
   if (!st.months.includes(found.month)) st.months = uniqSorted([...st.months, found.month]);
   renderHospitalMonthSelectors(); $('hospitalSelect').value = found.hospital; $('monthSelect').value = found.month;
@@ -1028,14 +1120,16 @@ function loadSettlement(key) {
 function duplicateSettlement(key) {
   const found = st.saved.find(x => x.key === key); if (!found) return;
   $('hospitalInput').value = found.hospital; $('monthInput').value = found.month + '-복사'; updateHeader();
-  st.items = (found.items_json||[]).map(x => ({...x, _k: String(Date.now()) + Math.random()})); render();
+  st.items = (found.items_json||[]).map(x => toManualItem({...x, _k: String(Date.now()) + Math.random()}));
+  st.loadedKey = null; render();
 }
 
 function copyToNextMonth(key) {
   const found = st.saved.find(x => x.key === key); if (!found) return;
   const next = nextMonthStr(found.month);
   $('hospitalInput').value = found.hospital; $('monthInput').value = next;
-  st.items = (found.items_json||[]).map(x => ({...x, _k: String(Date.now()) + Math.random()}));
+  st.items = (found.items_json||[]).map(x => toManualItem({...x, _k: String(Date.now()) + Math.random()}));
+  st.loadedKey = null;
   loadProducts(); updateHeader(); render();
   alert(`${next} 정산으로 복사했습니다. 수량 확인 후 저장하세요.`);
 }
@@ -1113,12 +1207,12 @@ function renderDistributors() {
   const html = st.distributors.map(d => `
     <div class="item" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
       <div>
-        <div style="font-weight:700;">${d.name}</div>
-        <div class="small">수수료율 ${(d.rate*100).toFixed(0)}%</div>
+        <div style="font-weight:700;">${escapeHtml(d.name)}</div>
+        <div class="small">수수료율 ${fmtRate(d.rate*100)}%</div>
       </div>
       <div style="display:flex;gap:6px;">
-        <button onclick="editDist(${d.id},'${d.name}',${d.rate})" class="sec" style="width:auto;padding:6px 12px;font-size:12px;">수정</button>
-        <button onclick="deleteDist(${d.id})" class="del" style="width:auto;padding:6px 12px;font-size:12px;">삭제</button>
+        <button onclick="editDist(${Number(d.id)},${jsArg(d.name)},${Number(d.rate)||0})" class="sec" style="width:auto;padding:6px 12px;font-size:12px;">수정</button>
+        <button onclick="deleteDist(${Number(d.id)})" class="del" style="width:auto;padding:6px 12px;font-size:12px;">삭제</button>
       </div>
     </div>`).join('');
   $('distList').innerHTML = html || '<div class="small">등록된 거래처 없음</div>';
@@ -1126,10 +1220,10 @@ function renderDistributors() {
   // 병원-거래처 연결 목록
   const hospHtml = st.hospitalInfo.map(h => `
     <div class="item" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-      <div style="font-weight:700;">${h.name}</div>
-      <select onchange="updateHospitalDist('${h.name}',this.value)" style="width:auto;min-width:160px;">
+      <div style="font-weight:700;">${escapeHtml(h.name)}</div>
+      <select onchange="updateHospitalDist(${jsArg(h.name)},this.value)" style="width:auto;min-width:160px;">
         <option value="">거래처 없음</option>
-        ${st.distributors.map(d=>`<option value="${d.name}" ${h.distributor_name===d.name?'selected':''}>${d.name}</option>`).join('')}
+        ${st.distributors.map(d=>`<option value="${escapeHtml(d.name)}" ${h.distributor_name===d.name?'selected':''}>${escapeHtml(d.name)}</option>`).join('')}
       </select>
     </div>`).join('');
   $('hospitalDistList').innerHTML = hospHtml || '<div class="small">등록된 병원 없음</div>';
@@ -1138,7 +1232,7 @@ function renderDistributors() {
   const distSel = $('hospitalDistributor');
   const cur = distSel.value;
   distSel.innerHTML = '<option value="">거래처 없음</option>' +
-    st.distributors.map(d=>`<option value="${d.name}">${d.name}</option>`).join('');
+    st.distributors.map(d=>`<option value="${escapeHtml(d.name)}">${escapeHtml(d.name)}</option>`).join('');
   distSel.value = cur;
 
   // CSO 월 필터 갱신
@@ -1164,17 +1258,18 @@ async function updateDistRateInline(distName, distId, newRatePercent) {
 window.updateDistRateInline = updateDistRateInline;
 
 // 품목 수정 모달
-function editCsoHospitalItems(key) {
+// editingItems: 삭제 후 다시 그릴 때 편집 중인 복사본을 그대로 이어서 보여주기 위함
+function editCsoHospitalItems(key, editingItems) {
   const settlement = st.saved.find(x => x.key === key);
   if (!settlement) return;
-  const items = settlement.items_json || [];
+  const items = editingItems || settlement.items_json || [];
   const itemsHtml = items.length ? items.map((item, idx) => `
     <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #334155;flex-wrap:wrap;">
-      <div style="flex:1;min-width:120px;font-size:14px;font-weight:600;">${item.name}</div>
+      <div style="flex:1;min-width:120px;font-size:14px;font-weight:600;">${escapeHtml(item.name)}</div>
       <div style="display:flex;align-items:center;gap:6px;">
         <span class="small">수량</span>
-        <input type="number" min="0" value="${item.quantity}" style="width:80px;text-align:center;padding:6px;border-radius:8px;"
-          onchange="window._csoEditItems[${idx}].quantity=Math.max(0,Number(this.value))">
+        <input type="number" min="0" step="any" value="${Number(item.quantity)||0}" style="width:80px;text-align:center;padding:6px;border-radius:8px;"
+          onchange="window._csoEditItems[${idx}]=toManualItem({...window._csoEditItems[${idx}],quantity:Math.max(0,Number(this.value))})">
       </div>
       <button onclick="removeCsoItemByIdx(${idx})" class="del" style="width:auto;padding:5px 12px;font-size:12px;">삭제</button>
     </div>`).join('') : '<div class="small" style="padding:10px;">품목 없음</div>';
@@ -1187,12 +1282,16 @@ function editCsoHospitalItems(key) {
     async () => {
       const updated = st.saved.find(x => x.key === window._csoEditKey);
       if (!updated) return;
-      updated.items_json = window._csoEditItems;
-      const t = currentTotals();
+      // 품목이 바뀌면 저장된 합계도 함께 갱신
+      let s = 0, f = 0, sp = 0, v = 0;
+      window._csoEditItems.forEach(it => { const c = calc(it, updated.month); s += c.sales; f += c.fee; sp += c.supply; v += c.vat; });
+      const totals = { total_sales: Math.round(s), total_fee: Math.round(f), total_supply: Math.round(sp), total_vat: Math.round(v) };
       const { error } = await sbClient.from('settlements').update({
-        items_json: window._csoEditItems,
+        items_json: window._csoEditItems, ...totals,
       }).eq('user_id', st.userId).eq('key', window._csoEditKey);
       if (error) { alert('저장 실패: ' + error.message); return; }
+      updated.items_json = window._csoEditItems;
+      Object.assign(updated, totals);
       closeModal();
       renderCsoOverview();
       alert('저장되었습니다.');
@@ -1203,9 +1302,11 @@ window.editCsoHospitalItems = editCsoHospitalItems;
 
 function removeCsoItemByIdx(idx) {
   if (!confirm('이 품목을 삭제하시겠어요?')) return;
-  window._csoEditItems.splice(idx, 1);
-  // 모달 갱신
-  editCsoHospitalItems(window._csoEditKey);
+  const [gone] = window._csoEditItems.splice(idx, 1);
+  // 엑셀 품목을 지우면 같은 파일의 나머지 품목도 '직접 입력 품목'으로 → 같은 파일을 다시 올릴 때 묻고 진행
+  if (gone && gone.source === 'excel') window._csoEditItems = window._csoEditItems.map(x => x.batch === gone.batch ? toManualItem(x) : x);
+  // 모달 갱신 (편집 중인 복사본으로 다시 그림 — 이전에는 저장된 원본으로 다시 그려 삭제가 사라졌음)
+  editCsoHospitalItems(window._csoEditKey, window._csoEditItems);
 }
 window.removeCsoItemByIdx = removeCsoItemByIdx;
 
@@ -1373,15 +1474,15 @@ function renderCsoOverview() {
       const itemRows = (row.items_json||[]).map(item => {
         const c = calc(item, row.month);
         rowSales += c.sales;
-        return `<tr><td>${item.name}</td><td>${fmt(item.quantity)}</td><td>${money(c.sales)}</td></tr>`;
+        return `<tr><td>${escapeHtml(item.name)}</td><td>${fmtQty(item.quantity)}</td><td>${money(c.sales)}</td></tr>`;
       }).join('');
       const rowFee = Math.round(rowSales * rate);
       totalSales += rowSales; totalFee += rowFee;
       return `
         <tr style="background:rgba(56,189,248,.06);">
           <td colspan="3" style="font-weight:700;padding:8px;">
-            ${row.hospital} <span class="small">${row.month}</span>
-            <button onclick="editCsoHospitalItems('${row.key}')" class="sec" style="width:auto;padding:3px 10px;font-size:11px;margin-left:8px;">품목 수정</button>
+            ${escapeHtml(row.hospital)} <span class="small">${escapeHtml(row.month)}</span>
+            <button onclick="editCsoHospitalItems(${jsArg(row.key)})" class="sec" style="width:auto;padding:3px 10px;font-size:11px;margin-left:8px;">품목 수정</button>
           </td>
         </tr>
         ${itemRows}
@@ -1396,12 +1497,12 @@ function renderCsoOverview() {
         <div class="cso-dist-title">
           <input type="checkbox" class="cso-dist-checkbox" data-cso-dist="${encodeURIComponent(distName)}" ${isSelected ? 'checked' : ''}>
           <div>
-            <div style="font-size:17px;font-weight:800;">${distName}</div>
+            <div style="font-size:17px;font-weight:800;">${escapeHtml(distName)}</div>
             <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
               <span class="small">수수료율</span>
               <input type="number" value="${(rate*100).toFixed(1)}" min="0" max="100" step="0.1"
                 style="width:74px;text-align:center;padding:5px 8px;font-size:14px;font-weight:700;border-radius:8px;"
-                onchange="updateDistRateInline('${distName}',${distId},this.value)">
+                onchange="updateDistRateInline(${jsArg(distName)},${distId === '' ? "''" : Number(distId)},this.value)">
               <span class="small">%</span>
             </div>
           </div>
@@ -1456,11 +1557,11 @@ function printCsoSettlement() {
       const itemRows = (row.items_json||[]).map(item => {
         const c = calc(item, row.month);
         totalSales += c.sales;
-        return `<tr><td>${row.hospital}</td><td>${item.name}</td><td>${money(c.sales)}</td><td>-</td></tr>`;
+        return `<tr><td>${escapeHtml(row.hospital)}</td><td>${escapeHtml(item.name)}</td><td>${money(c.sales)}</td><td>-</td></tr>`;
       }).join('');
       const rowSales = (row.items_json||[]).reduce((s,item) => s + calc(item,row.month).sales, 0);
       const rowFee = Math.round(rowSales * rate);
-      return itemRows + `<tr class="subtotal-row"><td colspan="2" style="text-align:right;">${row.hospital} 소계</td><td style="font-weight:700;">${money(rowSales)}</td><td style="color:#1a6fcf;">${money(rowFee)}</td></tr>`;
+      return itemRows + `<tr class="subtotal-row"><td colspan="2" style="text-align:right;">${escapeHtml(row.hospital)} 소계</td><td style="font-weight:700;">${money(rowSales)}</td><td style="color:#1a6fcf;">${money(rowFee)}</td></tr>`;
     }).join('');
 
     totalFee = Math.round(totalSales * rate);
@@ -1469,8 +1570,8 @@ function printCsoSettlement() {
     blocks += `
       <div style="margin-bottom:28px;page-break-inside:avoid;">
         <div class="dist-header">
-          <strong>${distName}</strong>
-          <span>수수료율 ${(rate*100).toFixed(0)}%</span>
+          <strong>${escapeHtml(distName)}</strong>
+          <span>수수료율 ${fmtRate(rate*100)}%</span>
         </div>
         <table>
           <thead><tr>
@@ -1641,7 +1742,12 @@ window.showAddProductModal = (type) => {
 // CSV / PDF
 // =============================================
 function buildCsv(rows) {
-  return rows.map(row => row.map(cell => `"${String(cell??'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  // 엑셀에서 열 때 =, +, -, @ 로 시작하는 글자가 수식으로 실행되지 않도록 앞에 ' 를 붙임 (숫자는 그대로)
+  const safe = cell => {
+    const s = String(cell ?? '');
+    return (typeof cell !== 'number' && /^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) ? "'" + s : s;
+  };
+  return rows.map(row => row.map(cell => `"${safe(cell).replace(/"/g,'""')}"`).join(',')).join('\n');
 }
 function triggerCsv(filename, rows) {
   const blob = new Blob(["﻿" + buildCsv(rows)], { type: 'text/csv;charset=utf-8;' });
@@ -1662,7 +1768,7 @@ function downloadCsv() {
 }
 function openPdf() {
   const t = currentTotals();
-  const itemRows = st.items.map(item => { const c=calc(item); return `<tr><td>${item.name}</td><td>${item.quantity}</td><td>${fmt(item.unitPrice)}원</td><td>${c.rate.toFixed(0)}%</td><td>${money(c.sales)}</td><td>${money(c.fee)}</td><td>${money(c.supply)}</td><td>${money(c.vat)}</td></tr>`; }).join('');
+  const itemRows = st.items.map(item => { const c=calc(item); return `<tr><td>${escapeHtml(item.name)}</td><td>${fmtQty(item.quantity)}</td><td>${fmt(item.unitPrice)}원</td><td>${fmtRate(c.rate)}%</td><td>${money(c.sales)}</td><td>${money(c.fee)}</td><td>${money(c.supply)}</td><td>${money(c.vat)}</td></tr>`; }).join('');
   const popup = window.open('','_blank'); if(!popup) return alert('팝업 차단됨');
   popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>정산서</title>
   <style>@page{size:A4 portrait;margin:10mm}body{font-family:Arial,sans-serif;margin:20px;color:#111}
@@ -1672,7 +1778,7 @@ function openPdf() {
   table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #ddd;padding:6px 4px;font-size:10px;word-break:break-word}th{background:#f5f5f5}
   @media print{.top-actions{display:none}body{margin:0}}</style></head><body>
   <div class="top-actions"><button onclick="window.print()">인쇄 / PDF 저장</button></div>
-  <h1>신풍제약 정산서</h1><div class="sub">${currentHospital()} · ${currentMonth()}</div>
+  <h1>신풍제약 정산서</h1><div class="sub">${escapeHtml(currentHospital())} · ${escapeHtml(currentMonth())}</div>
   <div class="sb"><div class="m"><span>총 판매금액</span><strong>${money(t.sales)}</strong></div><div class="m"><span>총 수수료</span><strong>${money(t.fee)}</strong></div><div class="m"><span>공급가액</span><strong>${money(t.supply)}</strong></div><div class="m"><span>부가세</span><strong>${money(t.vat)}</strong></div></div>
   <table><thead><tr><th>제품명</th><th>수량</th><th>단가</th><th>수수료율</th><th>판매금액</th><th>수수료</th><th>공급가액</th><th>부가세</th></tr></thead>
   <tbody>${itemRows||'<tr><td colspan="8">없음</td></tr>'}</tbody></table></body></html>`);
@@ -1694,14 +1800,834 @@ function openMonthPdf() {
   let gs=0,gf=0,gp=0,gv=0;
   const blocks = rows.map(row => {
     let s=0,f=0,p=0,v=0;
-    const dr = (row.items_json||[]).map(item => { const c=calc(item,row.month); s+=c.sales;f+=c.fee;p+=c.supply;v+=c.vat; return `<tr><td>${item.name}</td><td>${item.quantity}</td><td>${fmt(item.unitPrice)}원</td><td>${c.rate.toFixed(0)}%</td><td>${money(c.sales)}</td><td>${money(c.fee)}</td><td>${money(c.supply)}</td><td>${money(c.vat)}</td></tr>`; }).join('');
+    const dr = (row.items_json||[]).map(item => { const c=calc(item,row.month); s+=c.sales;f+=c.fee;p+=c.supply;v+=c.vat; return `<tr><td>${escapeHtml(item.name)}</td><td>${fmtQty(item.quantity)}</td><td>${fmt(item.unitPrice)}원</td><td>${fmtRate(c.rate)}%</td><td>${money(c.sales)}</td><td>${money(c.fee)}</td><td>${money(c.supply)}</td><td>${money(c.vat)}</td></tr>`; }).join('');
     gs+=s;gf+=f;gp+=p;gv+=v;
-    return `<div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:12px;page-break-inside:avoid;"><h2>${row.hospital} (${row.month})</h2><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px;">${[['판매',s],['수수료',f],['공급가',p],['부가세',v]].map(([l,val])=>`<div style="border:1px solid #eee;padding:6px;border-radius:6px;font-size:11px;"><span style="color:#666;">${l}</span><br><strong>${money(val)}</strong></div>`).join('')}</div><table style="width:100%;border-collapse:collapse;"><thead><tr>${['제품명','수량','단가','요율','판매금액','수수료','공급가액','부가세'].map(h=>`<th style="border:1px solid #ddd;padding:5px;background:#f5f5f5;font-size:10px;">${h}</th>`).join('')}</tr></thead><tbody>${dr}</tbody></table></div>`;
+    return `<div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:12px;page-break-inside:avoid;"><h2>${escapeHtml(row.hospital)} (${escapeHtml(row.month)})</h2><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px;">${[['판매',s],['수수료',f],['공급가',p],['부가세',v]].map(([l,val])=>`<div style="border:1px solid #eee;padding:6px;border-radius:6px;font-size:11px;"><span style="color:#666;">${l}</span><br><strong>${money(val)}</strong></div>`).join('')}</div><table style="width:100%;border-collapse:collapse;"><thead><tr>${['제품명','수량','단가','요율','판매금액','수수료','공급가액','부가세'].map(h=>`<th style="border:1px solid #ddd;padding:5px;background:#f5f5f5;font-size:10px;">${h}</th>`).join('')}</tr></thead><tbody>${dr}</tbody></table></div>`;
   }).join('');
   const popup = window.open('','_blank'); if(!popup) return alert('팝업 차단됨');
   popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>월 전체 정산</title><style>@page{size:A4;margin:10mm}body{font-family:Arial,sans-serif;margin:20px;color:#111;font-size:12px}h1{font-size:20px}h2{font-size:15px;margin:0 0 6px}table td,table th{border:1px solid #ddd;padding:5px;font-size:10px;word-break:break-word}.top{margin-bottom:12px}.top button{padding:8px;border:1px solid #bbb;background:#f7f7f7;border-radius:6px;cursor:pointer}@media print{.top{display:none}body{margin:0}}</style></head><body><div class="top"><button onclick="window.print()">인쇄/PDF</button></div><h1>신풍제약 월 전체 정산 — ${st.monthFilter==='ALL'?'전체':st.monthFilter}</h1><p>병원 ${rows.length}처 · 총판매 ${money(gs)} · 총수수료 ${money(gf)}</p>${blocks}</body></html>`);
   popup.document.close();
 }
+
+// =============================================
+// 엑셀 업로드 (거래처 정산 엑셀 → 병원·처방월별 정산서)
+// =============================================
+// 저장 규칙
+// - 정산서는 '병원 + 처방월' 하나. 엑셀 품목에는 출처를 붙인다:
+//     batchGroup = '거래처|정산월'  (어느 거래처의 몇 월 정산 파일인지)
+//     batch      = batchGroup + '|' + 파일 내용 해시  (정확히 어떤 내용의 파일인지 — 파일 이름과 무관)
+// - 내용이 같은 파일을 다시 올리면: 그 파일 품목을 같은 내용으로 다시 씀 (중복 없음, 병원 연결 변경도 반영)
+// - 같은 거래처·정산월인데 내용이 다른 파일이면: 사용자가 '수정본(교체)' / '추가분(더하기)'을 고른다
+// - 다른 정산월 파일의 품목(예: 지난달 파일, 다음 달 소급분)은 건드리지 않고 더한다
+// - 직접 입력했거나, 엑셀 품목을 수정·복사한 품목이 있는 정산서는 교체/유지/건너뛰기를 고른 뒤 저장
+// - 수수료율은 엑셀의 기본수수료(%)를 그대로 쓴다 (fixedRate). 수기 입력의 +1%·인센티브는 적용하지 않는다.
+const XLSX_SRC = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+let xlsxLoading = null;
+function ensureXlsx() {
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (!xlsxLoading) {
+    xlsxLoading = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = XLSX_SRC;
+      s.onload = () => window.XLSX ? resolve(window.XLSX) : reject(new Error('엑셀 라이브러리를 불러오지 못했습니다.'));
+      s.onerror = () => { xlsxLoading = null; reject(new Error('엑셀 라이브러리를 불러오지 못했습니다. 인터넷 연결을 확인해주세요.')); };
+      document.head.appendChild(s);
+    });
+  }
+  return xlsxLoading;
+}
+
+const upNorm = s => String(s ?? '').replace(/\s+/g, '').toLowerCase();
+const upRound = (v, d = 4) => Math.round(v * 10 ** d) / 10 ** d;
+const money1 = v => new Intl.NumberFormat('ko-KR', {maximumFractionDigits:1}).format(Number(v||0)) + '원';
+const UP_OK_STATUS = new Set(['', '입력', '승인', '확정', '완료']);
+
+// 파일 내용 지문 (cyrb53) — 이름이 달라도 내용이 같으면 같은 값
+function upHash(str) {
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+}
+
+function upNum(v) {
+  if (v === null || v === undefined || v === '') return 0;
+  if (typeof v === 'number') return v;
+  return Number(String(v).replace(/,/g, '').trim());
+}
+
+// 처방월·정산월 → 'YYYY-MM'. 알아볼 수 없으면 '' (오류로 처리)
+function upMonth(v, cell) {
+  const ok = (y, m) => (y >= 2000 && y <= 2100 && m >= 1 && m <= 12) ? `${y}-${String(m).padStart(2, '0')}` : '';
+  const fromText = t => {
+    const s = String(t).trim();
+    let m = s.match(/^(\d{4})\s*(?:[-/.]|년)\s*(\d{1,2})(?!\d)/);
+    if (m) return ok(+m[1], +m[2]);
+    m = s.match(/^(\d{4})(\d{2})$/);
+    if (m) return ok(+m[1], +m[2]);
+    return '';
+  };
+  if (v === null || v === undefined || v === '') return '';
+  if (v instanceof Date) return ok(v.getFullYear(), v.getMonth() + 1);
+  if (typeof v === 'number') {
+    // 화면에 보이는 글자 우선 (숫자 2026.10이 2026.1로 읽혀 1월이 되는 것 방지)
+    if (cell && cell.w) { const t = fromText(cell.w); if (t) return t; }
+    if (Number.isInteger(v) && v >= 200001 && v <= 210012) return ok(Math.floor(v / 100), v % 100); // 202609
+    const isDateFmt = cell && cell.z && /[ymd]/i.test(String(cell.z));
+    if ((isDateFmt || (Number.isInteger(v) && v >= 36526 && v <= 73051)) && window.XLSX) { // 2000~2100년 날짜 일련번호
+      const d = XLSX.SSF.parse_date_code(v);
+      if (d) return ok(d.y, d.m);
+    }
+    return '';
+  }
+  return fromText(v);
+}
+
+// 수수료율 → % 숫자. 화면에 보이는 숫자가 저장값의 100배면(0.5가 '50%'로 보임) 100을 곱한다.
+// (값 50에 서식 0"%"처럼 글자만 %인 경우는 그대로 50)
+function upRate(v, cell) {
+  if (typeof v === 'number') {
+    const shown = cell && cell.w != null ? Number(String(cell.w).replace(/[,%\s]/g, '')) : NaN;
+    if (Number.isFinite(shown) && v !== 0 && Math.abs(shown - v * 100) < Math.abs(shown - v)) return upRound(v * 100, 6);
+    return upRound(v, 6);
+  }
+  const s = String(v ?? '').trim();
+  return upRound(upNum(s.endsWith('%') ? s.slice(0, -1) : s), 6);
+}
+
+const UP_COLUMNS = {
+  hospital: ['처방처명'],
+  month: ['처방월'],
+  settleMonth: ['정산월'],
+  product: ['품목명'],
+  code: ['보험(청구)코드', '보험코드', '청구코드'],
+  price: ['단가'],
+  rate: ['기본수수료(%)', '기본수수료', '수수료(%)', '수수료율(%)', '수수료율'],
+  amount: ['입력금액'],
+  cmr: ['CMR명'],
+  bizNo: ['사업자번호'],
+  status: ['상태'],
+  kind: ['구분'],
+};
+
+function parseSettlementSheet(XLSX, wb) {
+  let ws = null, grid = null, headerIdx = -1, sheetName = '';
+  for (const name of wb.SheetNames) {
+    const s = wb.Sheets[name];
+    const g = XLSX.utils.sheet_to_json(s, { header: 1, raw: true, defval: null, blankrows: true });
+    const idx = g.slice(0, 20).findIndex(r => (r || []).some(c => upNorm(c) === '처방처명') && (r || []).some(c => upNorm(c) === '품목명'));
+    if (idx >= 0) { ws = s; grid = g; headerIdx = idx; sheetName = name; break; }
+  }
+  if (!grid) throw new Error('정산 엑셀 형식이 아닙니다. 처방처명·품목명 열이 있는 시트를 찾지 못했습니다.');
+  const range = ws['!ref'] ? XLSX.utils.decode_range(ws['!ref']) : { s: { r: 0, c: 0 } };
+  const cellAt = (i, c) => c >= 0 ? ws[XLSX.utils.encode_cell({ r: i + range.s.r, c: c + range.s.c })] : null;
+  const header = (grid[headerIdx] || []).map(upNorm);
+  const sub = (grid[headerIdx + 1] || []).map(upNorm);
+  const col = {};
+  for (const [key, names] of Object.entries(UP_COLUMNS)) {
+    const cands = names.map(upNorm);
+    col[key] = header.findIndex(h => cands.includes(h));
+  }
+  // 수량: 두 줄 머리글의 '원내'·'원외' 아래 '입력수량'을 합산
+  const qtyCols = [];
+  for (const group of ['원내', '원외']) {
+    const gi = header.indexOf(group);
+    if (gi < 0) continue;
+    for (let j = gi; j < Math.min(gi + 4, sub.length); j++) {
+      if (sub[j] === '입력수량') { qtyCols.push(j); break; }
+    }
+  }
+  if (!qtyCols.length) {
+    const qi = header.findIndex(h => h === '입력수량' || h === '수량');
+    if (qi >= 0) qtyCols.push(qi);
+  }
+  const hasSubHeader = sub.some(h => h === '입력수량' || h === '승인수량');
+  const missing = [];
+  if (col.hospital < 0) missing.push('처방처명');
+  if (col.month < 0) missing.push('처방월');
+  if (col.product < 0) missing.push('품목명');
+  if (col.price < 0) missing.push('단가');
+  if (col.rate < 0) missing.push('기본수수료(%)');
+  if (!qtyCols.length) missing.push('입력수량(원내·원외)');
+  if (missing.length) throw new Error('필수 열이 없습니다: ' + missing.join(', '));
+
+  const get = (r, k) => col[k] >= 0 ? r[col[k]] : null;
+  const blank = v => v === null || v === undefined || String(v).trim() === '';
+  const rows = [], errors = [];
+  for (let i = headerIdx + (hasSubHeader ? 2 : 1); i < grid.length; i++) {
+    const r = grid[i] || [];
+    const excelRow = i + 1 + range.s.r;
+    const productName = String(get(r, 'product') ?? '').trim();
+    if (!productName) continue; // 빈 줄·합계 줄
+    const hospital = String(get(r, 'hospital') ?? '').trim();
+    const month = upMonth(get(r, 'month'), cellAt(i, col.month));
+    const price = upNum(get(r, 'price'));
+    const ratePct = upRate(get(r, 'rate'), cellAt(i, col.rate));
+    const qty = upRound(qtyCols.reduce((a, j) => a + upNum(r[j]), 0));
+    const amountRaw = get(r, 'amount');
+    const amount = (col.amount >= 0 && !blank(amountRaw)) ? upNum(amountRaw) : null;
+    const problems = [];
+    if (!hospital) problems.push('처방처명 없음');
+    if (!month) problems.push(`처방월 형식 오류(${String(get(r, 'month') ?? '')})`);
+    if (blank(get(r, 'price'))) problems.push('단가 없음');
+    else if (!Number.isFinite(price)) problems.push('단가가 숫자가 아님');
+    if (blank(get(r, 'rate'))) problems.push('수수료율 없음');
+    else if (!Number.isFinite(ratePct)) problems.push('수수료율이 숫자가 아님');
+    else if (ratePct < 0 || ratePct > 100) problems.push(`수수료율이 0~100% 밖(${ratePct}%)`);
+    if (!Number.isFinite(qty)) problems.push('수량이 숫자가 아님');
+    if (amount !== null && !Number.isFinite(amount)) problems.push('입력금액이 숫자가 아님');
+    if (problems.length) { errors.push({ excelRow, hospital, productName, reason: problems.join(', ') }); continue; }
+    rows.push({
+      excelRow, hospital, month, productName,
+      code: String(get(r, 'code') ?? '').trim(),
+      price, ratePct, qty, amount,
+      cmr: String(get(r, 'cmr') ?? '').split('/')[0].trim(),
+      bizNo: String(get(r, 'bizNo') ?? '').trim(),
+      status: String(get(r, 'status') ?? '').trim(),
+      kind: String(get(r, 'kind') ?? '').trim(),
+      settleMonth: upMonth(get(r, 'settleMonth'), cellAt(i, col.settleMonth)),
+    });
+  }
+  if (!rows.length && !errors.length) throw new Error('엑셀에서 정산 품목을 찾지 못했습니다.');
+  return { sheetName, rows, errors };
+}
+
+function buildProductIndex() {
+  const byName = new Map(), byCode = new Map();
+  const add = (p, type) => {
+    const n = upNorm(p.name);
+    if (n && !byName.has(n)) byName.set(n, { p, type });
+    const c = String(p.code || '').trim();
+    if (c) { if (!byCode.has(c)) byCode.set(c, []); byCode.get(c).push({ p, type }); }
+  };
+  (st.coveredProducts || []).forEach(p => add(p, 'covered'));
+  (st.noncoveredProducts || []).forEach(p => add(p, 'noncovered'));
+  return { byName, byCode };
+}
+
+// 제품명(공백 무시) 우선, 없으면 보험코드가 하나뿐일 때만 연결
+function matchProduct(index, row) {
+  const byName = index.byName.get(upNorm(row.productName));
+  if (byName) return { ...byName, how: 'name' };
+  const list = index.byCode.get(row.code);
+  if (list && list.length === 1) return { ...list[0], how: 'code' };
+  return null;
+}
+
+// ── 병원 연결 ──
+const upMemoryKey = () => `shinpoong_upload_hospmap_${st.userId || 'anon'}`;
+function loadHospMemory() {
+  try { return JSON.parse(localStorage.getItem(upMemoryKey()) || '{}') || {}; } catch (e) { return {}; }
+}
+function saveHospMemory(map) {
+  try { localStorage.setItem(upMemoryKey(), JSON.stringify(map)); } catch (e) { /* 저장 불가 환경은 무시 */ }
+}
+const existingHospitalNames = () => (st.hospitalInfo || []).map(h => h.name).filter(Boolean);
+
+// 이름이 같은 병원으로 볼 수 있는지: 공백 무시, 끝의 의원/병원/요양병원은 한쪽에만 있을 때만 무시
+// (예: '박영대 정형외과의원' ≈ '박영대정형외과', 하지만 '중앙의원' ≠ '중앙병원')
+const HOSP_SUFFIX = /(요양병원|병원|의원)$/;
+function hospParts(s) {
+  const n = upNorm(s), m = n.match(HOSP_SUFFIX);
+  return { base: m ? n.slice(0, n.length - m[1].length) : n, suf: m ? m[1] : '' };
+}
+function hospCompatible(a, b) {
+  const x = hospParts(a), y = hospParts(b);
+  return !!x.base && x.base === y.base && (x.suf === y.suf || !x.suf || !y.suf);
+}
+
+function defaultHospitalMapping(excelNames) {
+  const existing = existingHospitalNames();
+  const exact = new Set(existing);
+  const memory = loadHospMemory();
+  const map = {}, how = {}, autoTarget = {};
+  for (const name of excelNames) {
+    map[name] = '__new__'; how[name] = 'new';
+    if (exact.has(name)) { map[name] = name; how[name] = 'exact'; continue; }
+    const mem = memory[name];
+    if (mem && (mem === '__new__' || exact.has(mem))) { map[name] = mem; how[name] = 'memory'; continue; }
+    const cands = existing.filter(n => hospCompatible(name, n));
+    if (cands.length === 1) autoTarget[name] = cands[0];
+  }
+  // 자동 연결은 그 병원으로 가는 처방처가 하나뿐일 때만 (두 처방처가 한 병원으로 합쳐지는 것 방지)
+  const used = {};
+  Object.values(map).forEach(t => { if (t !== '__new__') used[t] = (used[t] || 0) + 1; });
+  Object.values(autoTarget).forEach(t => { used[t] = (used[t] || 0) + 1; });
+  for (const [name, t] of Object.entries(autoTarget)) {
+    if (used[t] === 1) { map[name] = t; how[name] = 'auto'; }
+  }
+  return { map, how };
+}
+
+function uploadTarget(excelName) {
+  const v = st.upload.hospMap[excelName];
+  return (!v || v === '__new__') ? excelName : v;
+}
+
+// ── 저장 계획 ──
+function buildUploadPlan() {
+  const up = st.upload;
+  const index = buildProductIndex();
+  const saved = st.saved || [];
+  const savedByKey = new Map(saved.map(s => [s.key, s]));
+  const hospInfo = new Map((st.hospitalInfo || []).map(h => [h.name, h]));
+  const distByNorm = new Map((st.distributors || []).map(d => [upNorm(d.name), d.name]));
+
+  // 이 파일이 어느 거래처의 몇 월 정산인지 (정산월 열이 없으면 사용자가 입력)
+  const needSettleMonth = up.rows.some(r => !r.settleMonth);
+  const typedSettleMonth = upMonth(up.settleMonthInput || '');
+  const smOf = r => r.settleMonth || typedSettleMonth;
+  const groupOf = r => `${r.cmr || '거래처 미상'}|${smOf(r) || '?'}`;
+  const fileGroups = new Map();
+  up.rows.forEach(r => {
+    const g = groupOf(r);
+    if (!fileGroups.has(g)) fileGroups.set(g, { group: g, label: `${r.cmr || '거래처 미상'} ${smOf(r) || '(정산월 미입력)'} 정산`, batch: `${g}|${up.fileHash}` });
+  });
+
+  // 이미 저장된 엑셀 품목 중 이 파일과 같은 거래처·정산월인 것
+  const prevByGroup = new Map();
+  for (const s of saved) for (const it of (s.items_json || [])) {
+    if (it.source !== 'excel' || !fileGroups.has(it.batchGroup)) continue;
+    if (!prevByGroup.has(it.batchGroup)) prevByGroup.set(it.batchGroup, new Map());
+    const byBatch = prevByGroup.get(it.batchGroup);
+    if (!byBatch.has(it.batch)) byBatch.set(it.batch, { keys: new Set(), items: 0, sales: 0 });
+    const b = byBatch.get(it.batch);
+    b.keys.add(s.key); b.items++; b.sales += (Number(it.unitPrice) || 0) * (Number(it.quantity) || 0);
+  }
+  const groups = [...fileGroups.values()].map(fg => {
+    const byBatch = prevByGroup.get(fg.group) || new Map();
+    const others = [...byBatch.entries()].filter(([b]) => b !== fg.batch);
+    const otherKeys = new Set(); let otherItems = 0, otherSales = 0;
+    others.forEach(([, v]) => { v.keys.forEach(k => otherKeys.add(k)); otherItems += v.items; otherSales += v.sales; });
+    // same: 이 파일을 이미 올렸음(같은 거래처·정산월의 다른 파일이 있어도 기본은 그대로 둠)
+    // conflict: 이 파일은 처음인데 같은 거래처·정산월의 다른 파일이 있음 → 수정본/추가분 선택
+    const status = byBatch.has(fg.batch) ? 'same' : (others.length ? 'conflict' : 'new');
+    return { ...fg, status, otherBatches: others.map(([b]) => b), otherKeys: [...otherKeys], otherItems, otherSales };
+  });
+  const groupConflicts = groups.filter(g => g.status === 'conflict');
+  // 같은 내용의 파일을 다른 정산월로 이미 올렸는지 (정산월을 직접 입력한 파일에서 잘못 입력하면 중복이 되므로 막거나, 정정을 고르게 함)
+  const elsewhere = new Map(); // batch -> 표시 이름
+  for (const s of saved) for (const it of (s.items_json || [])) {
+    if (it.source === 'excel' && typeof it.batch === 'string' && it.batch.endsWith('|' + up.fileHash) && !fileGroups.has(it.batchGroup)) elsewhere.set(it.batch, it.batchLabel || it.batchGroup);
+  }
+  // 이번 저장에서 지울 이전 업로드 묶음: 항상 '이 파일 자신'
+  // + 수정본(교체)이면 같은 거래처·정산월의 다른 파일, + '다른 파일도 지우기'를 고르면 그 파일들, + 정산월 정정이면 잘못 입력했던 업로드
+  const replaced = new Set();
+  groups.forEach(g => {
+    replaced.add(g.batch);
+    if ((g.status === 'conflict' && up.groupMode === 'replace') || (g.status === 'same' && up.dropSiblings)) g.otherBatches.forEach(b => replaced.add(b));
+  });
+  if (up.fixElsewhere) elsewhere.forEach((_, b) => replaced.add(b));
+  const isReplaced = it => it.source === 'excel' && replaced.has(it.batch);
+
+  const newGroups = new Map(), hospCmr = new Map(), rateDiff = new Map(), unmatched = new Map(), targetSources = new Map();
+  const amountDiff = [];
+  let byNameCount = 0, byCodeCount = 0, sumAmount = 0, sumCalc = 0, fractionRows = 0;
+  const hasAmount = up.rows.some(r => r.amount !== null);
+
+  for (const row of up.rows) {
+    const target = uploadTarget(row.hospital);
+    if (!targetSources.has(target)) targetSources.set(target, new Set());
+    targetSources.get(target).add(row.hospital);
+    const m = matchProduct(index, row);
+    if (m && m.how === 'name') byNameCount++;
+    else if (m) byCodeCount++;
+    else unmatched.set(row.productName, { name: row.productName, code: row.code, count: (unmatched.get(row.productName)?.count || 0) + 1 });
+    const p = m ? m.p : null;
+    const name = p ? p.name : row.productName;
+
+    if (m && m.type === 'covered' && (st.rateHistory || []).some(r => r.product_name === p.name)) {
+      const registered = upRound(getRateForMonth(p.name, row.month) * 100, 2);
+      if (Math.abs(registered - row.ratePct) > 0.001) {
+        const k = `${p.name}|${row.month}`;
+        if (!rateDiff.has(k)) rateDiff.set(k, { name: p.name, month: row.month, excel: row.ratePct, registered });
+      }
+    }
+    const calcAmount = row.price * row.qty;
+    sumCalc += calcAmount;
+    if (row.qty % 1 !== 0) fractionRows++;
+    if (row.amount !== null) {
+      sumAmount += row.amount;
+      if (Math.abs(row.amount - calcAmount) > 0.5) amountDiff.push({ ...row, calcAmount });
+    }
+    if (row.cmr) {
+      const c = hospCmr.get(target) || {};
+      c[row.cmr] = (c[row.cmr] || 0) + 1;
+      hospCmr.set(target, c);
+    }
+
+    const fg = fileGroups.get(groupOf(row));
+    const key = `${target}__${row.month}`;
+    if (!newGroups.has(key)) newGroups.set(key, { key, hospital: target, month: row.month, items: [] });
+    const g = newGroups.get(key);
+    const rate = upRound(row.ratePct / 100, 6);
+    const same = g.items.find(it => it.name === name && it.unitPrice === row.price && it.fixedRate === rate && it.batch === fg.batch);
+    if (same) { same.quantity = upRound(same.quantity + row.qty); continue; }
+    g.items.push({
+      id: p ? p.id : null,
+      code: p ? (p.code || row.code) : row.code,
+      name,
+      indication: p ? (p.indication || '') : '',
+      ingredient: p ? (p.ingredient || '') : '',
+      active_from: p ? (p.active_from || null) : null,
+      active_to: p ? (p.active_to || null) : null,
+      type: 'covered',
+      _type: m ? m.type : 'unregistered',
+      unitPrice: row.price,
+      unit_price: row.price,
+      quantity: row.qty,
+      extraRate: 0,
+      fixedRate: rate,
+      source: 'excel',
+      batchGroup: fg.group,
+      batch: fg.batch,
+      batchLabel: fg.label,
+    });
+  }
+
+  // 부동소수점 오차(예: 281956.49999999)로 반올림이 틀어지지 않도록 소수 6자리에서 먼저 정리
+  const R = x => Math.round(upRound(x, 6));
+  const totalsOf = (items, month) => {
+    let s = 0, f = 0, sp = 0, v = 0;
+    items.forEach(it => { const c = calc(it, month); s += c.sales; f += c.fee; sp += c.supply; v += c.vat; });
+    return { total_sales: R(s), total_fee: R(f), total_supply: R(sp), total_vat: R(v) };
+  };
+
+  // 이번 파일이 들어가는 정산서
+  const settlements = [...newGroups.values()].map(g => {
+    const prev = savedByKey.get(g.key);
+    const kept = prev ? (prev.items_json || []).filter(it => !isReplaced(it)) : [];
+    const removed = prev ? (prev.items_json || []).length - kept.length : 0;
+    const otherExcel = kept.filter(it => it.source === 'excel');
+    const manual = kept.filter(it => it.source !== 'excel');
+    // 이번 엑셀 품목과 제품·단가가 같은 직접 입력 품목 = 고쳤거나 복사한 이전 버전일 가능성이 큼 → '유지'에서도 엑셀 것으로 교체
+    const sameAsExcel = m => g.items.some(n => n.name === m.name && Number(n.unitPrice) === Number(m.unitPrice));
+    const manualDup = manual.filter(sameAsExcel);
+    const manualOnly = manual.filter(m => !sameAsExcel(m));
+    let save = true, finalItems = [...otherExcel, ...g.items];
+    if (manual.length) {
+      if (up.manualMode === 'keep') finalItems = [...otherExcel, ...manualOnly, ...g.items];
+      else if (up.manualMode !== 'replace') save = false; // '건너뛰기' 또는 아직 선택 안 함
+    }
+    const excel = totalsOf(g.items, g.month);
+    return {
+      key: g.key, hospital: g.hospital, month: g.month, newItems: g.items, finalItems, save,
+      exists: !!prev, removed, otherExcel: otherExcel.length, manual: manual.length, manualDup: manualDup.length,
+      excelSales: excel.total_sales, excelFee: excel.total_fee,
+      prevSales: prev ? Math.round(Number(prev.total_sales) || 0) : 0,
+      ...totalsOf(finalItems, g.month),
+    };
+  }).sort((a, b) => a.month.localeCompare(b.month) || a.hospital.localeCompare(b.hospital, 'ko'));
+
+  // 이전 업로드 품목이 있었지만 이번 파일에는 없는 정산서 → 그 품목을 빼고, 비면 삭제
+  const orphans = saved.filter(s => !newGroups.has(s.key) && (s.items_json || []).some(isReplaced)).map(s => {
+    const remaining = (s.items_json || []).filter(it => !isReplaced(it));
+    return { key: s.key, hospital: s.hospital, month: s.month, removed: (s.items_json || []).length - remaining.length,
+      finalItems: remaining, del: remaining.length === 0, prevSales: Math.round(Number(s.total_sales) || 0), ...totalsOf(remaining, s.month) };
+  }).sort((a, b) => a.month.localeCompare(b.month) || a.hospital.localeCompare(b.hospital, 'ko'));
+
+  // 저장할 정산서 기준으로만 병원·거래처·월을 등록 (건너뛴 정산서 때문에 바뀌는 것 없음)
+  const toSave = settlements.filter(s => s.save);
+  const topCmr = t => { const c = hospCmr.get(t); return c ? Object.entries(c).sort((a, b) => b[1] - a[1])[0][0] : ''; };
+  const distName = cmr => cmr ? (distByNorm.get(upNorm(cmr)) || cmr) : '';
+  const targets = [...new Set(toSave.map(s => s.hospital))];
+  const newHospitals = targets.filter(t => !hospInfo.has(t)).map(t => ({ name: t, distributor_name: distName(topCmr(t)) }));
+  // 기존 병원은 거래처가 비어 있을 때만 연결 (이미 다른 거래처면 그대로 둠)
+  const linkHospitals = targets.filter(t => hospInfo.has(t) && !hospInfo.get(t).distributor_name && topCmr(t))
+    .map(t => ({ name: t, distributor_name: distName(topCmr(t)) }));
+  const usedDists = new Set([...newHospitals, ...linkHospitals].map(h => h.distributor_name).filter(Boolean));
+  const distributorsToCreate = [...usedDists].filter(d => !distByNorm.has(upNorm(d)));
+  const merged = [...targetSources.entries()].filter(([, srcs]) => srcs.size > 1).map(([t, srcs]) => ({ target: t, sources: [...srcs] }));
+  const positiveRates = up.rows.filter(r => r.ratePct > 0);
+  const ratesLookFractional = positiveRates.length > 0 && positiveRates.every(r => r.ratePct <= 1);
+  const manualConflicts = settlements.filter(s => s.manual > 0);
+
+  let blockReason = '';
+  if (ratesLookFractional) blockReason = '수수료율을 확인해야 저장할 수 있습니다.';
+  else if (needSettleMonth && !typedSettleMonth) blockReason = '이 파일이 몇 월 정산인지 먼저 입력해주세요.';
+  else if (elsewhere.size && !up.fixElsewhere) blockReason = '같은 내용의 파일을 이미 다른 정산월로 올렸습니다. 정산월을 확인하거나, 잘못 입력했던 것이면 정정을 선택해주세요.';
+  else if (groupConflicts.length && !up.groupMode) blockReason = '이 파일이 수정본인지 추가분인지 먼저 골라주세요.';
+  else if (manualConflicts.length && !up.manualMode) blockReason = '직접 입력한 품목이 있는 정산서를 어떻게 할지 먼저 골라주세요.';
+  else if (!toSave.length && !orphans.length) blockReason = '저장할 정산서가 없습니다.';
+
+  return {
+    settlements, toSave, orphans, groups, groupConflicts, needSettleMonth, typedSettleMonth, blockReason, elsewhereLabels: [...new Set(elsewhere.values())],
+    newHospitals, linkHospitals, distributorsToCreate, merged, ratesLookFractional, manualConflicts,
+    months: [...new Set(toSave.map(s => s.month))].sort(),
+    byNameCount, byCodeCount, unmatched: [...unmatched.values()],
+    rateDiff: [...rateDiff.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko') || a.month.localeCompare(b.month)),
+    amountDiff, hasAmount, sumAmount, sumCalc, fractionRows,
+    appends: settlements.filter(s => s.otherExcel > 0),
+  };
+}
+
+function upCountBy(rows, key) {
+  const c = {};
+  rows.forEach(r => { const v = r[key] || '-'; c[v] = (c[v] || 0) + 1; });
+  return Object.entries(c).map(([k, n]) => `${escapeHtml(k)} ${n}`).join(' · ');
+}
+
+function upCheck(type, text, detail = '') {
+  const icon = { ok: '✓', warn: '!', err: '✕', info: 'i' }[type];
+  return `<div class="check ${type}"><div class="ic">${icon}</div><div>${text}${detail}</div></div>`;
+}
+
+function upTable(head, rows) {
+  return `<div class="table-wrap"><table><thead><tr>${head.map(h => `<th${h.num ? ' class="num"' : ''}>${h.t}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
+}
+
+function renderUploadPreview() {
+  const box = $('upPreview');
+  const up = st.upload;
+  if (!up) { box.innerHTML = ''; return; }
+  const plan = buildUploadPlan();
+  const list = plan.toSave;
+  const eSales = list.reduce((a, s) => a + s.excelSales, 0);
+  const eFee = list.reduce((a, s) => a + s.excelFee, 0);
+  const itemCount = list.reduce((a, s) => a + s.newItems.length, 0);
+  const cmrs = [...new Set(up.rows.map(r => r.cmr).filter(Boolean))];
+  const settleMonths = [...new Set(up.rows.map(r => r.settleMonth).filter(Boolean))];
+  const savedLabel = k => { const s = (st.saved || []).find(x => x.key === k); return s ? `${escapeHtml(s.hospital)} ${s.month}` : escapeHtml(k); };
+
+  const checks = [];
+  if (up.errors.length) {
+    checks.push(upCheck('err', `형식 오류로 제외된 행 <b>${up.errors.length}개</b> · 아래 합계에 포함되지 않습니다. 엑셀을 고쳐 다시 올리는 것을 권장합니다.`,
+      `<details open><summary>행 보기</summary>${upTable([{t:'엑셀 행'},{t:'병원'},{t:'품목'},{t:'이유'}],
+        up.errors.map(e => `<tr><td>${e.excelRow}</td><td>${escapeHtml(e.hospital)}</td><td>${escapeHtml(e.productName)}</td><td>${escapeHtml(e.reason)}</td></tr>`))}</details>`));
+  }
+  if (plan.ratesLookFractional) {
+    checks.push(upCheck('err', '수수료율이 모두 1 이하입니다. 0.5(=50%)처럼 소수로 적힌 파일이면 수수료가 100배 작게 계산됩니다. 엑셀의 기본수수료(%) 열을 확인해주세요. 이 상태로는 저장할 수 없습니다.'));
+  }
+  if (plan.needSettleMonth) {
+    checks.push(upCheck(plan.typedSettleMonth ? 'info' : 'warn', '이 파일에는 정산월이 없습니다. 몇 월 정산 파일인지 입력해주세요 (같은 파일을 두 번 넣거나 다른 달 파일을 덮어쓰지 않도록 구분하는 데 씁니다).',
+      `<div style="margin-top:6px;"><input id="upSettleMonth" placeholder="예: 2026-10" value="${escapeHtml(up.settleMonthInput || '')}" style="width:160px;padding:8px 10px;" aria-label="정산월 입력"></div>`));
+  }
+  if (plan.hasAmount) {
+    const excluded = up.errors.length ? ` (제외된 ${up.errors.length}행은 비교하지 않음)` : '';
+    if (!plan.amountDiff.length) {
+      checks.push(upCheck(up.errors.length ? 'warn' : 'ok', `금액 일치 · 엑셀 입력금액 합계 <b>${money1(plan.sumAmount)}</b> = 단가×수량 합계 <b>${money1(plan.sumCalc)}</b>${excluded}`));
+    } else {
+      checks.push(upCheck('warn', `입력금액이 단가×수량과 다른 행 <b>${plan.amountDiff.length}개</b> · 앱은 단가×수량으로 계산합니다 (엑셀 ${money1(plan.sumAmount)} / 앱 ${money1(plan.sumCalc)})${excluded}`,
+        `<details open><summary>행 보기</summary>${upTable(
+          [{t:'엑셀 행'},{t:'병원'},{t:'품목'},{t:'단가',num:1},{t:'수량',num:1},{t:'단가×수량',num:1},{t:'입력금액',num:1}],
+          plan.amountDiff.map(r => `<tr><td>${r.excelRow}</td><td>${escapeHtml(r.hospital)}</td><td>${escapeHtml(r.productName)}</td><td class="num">${fmt(r.price)}</td><td class="num">${fmtQty(r.qty)}</td><td class="num">${money1(r.calcAmount)}</td><td class="num">${money1(r.amount)}</td></tr>`))}</details>`));
+    }
+  }
+  if (plan.fractionRows) checks.push(upCheck('info', `소수점 수량 ${plan.fractionRows}행 (예: 0.5정 처방) · 소수점 그대로 저장합니다`));
+  const badStatus = up.rows.filter(r => !UP_OK_STATUS.has(r.status));
+  if (badStatus.length) {
+    checks.push(upCheck('warn', `상태가 '입력·승인'이 아닌 행 <b>${badStatus.length}개</b>가 포함되어 있습니다 (${upCountBy(badStatus, 'status')}). 반려·삭제된 건이면 엑셀에서 지운 뒤 다시 올려주세요.`));
+  }
+  if (!plan.unmatched.length) {
+    checks.push(upCheck('ok', `품목 ${up.rows.length}행 모두 제품 목록과 연결 (제품명 ${plan.byNameCount}행 · 보험코드 ${plan.byCodeCount}행)`));
+  } else {
+    checks.push(upCheck('warn', `제품 목록에 없는 품목 <b>${plan.unmatched.length}종</b> · 엑셀의 품목명·단가·수수료율 그대로 저장합니다`,
+      `<details><summary>품목 보기</summary>${upTable([{t:'품목명'},{t:'보험코드'},{t:'행 수',num:1}],
+        plan.unmatched.map(u => `<tr><td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.code)}</td><td class="num">${u.count}</td></tr>`))}</details>`));
+  }
+  checks.push(upCheck('info', '수수료율은 엑셀의 기본수수료(%)를 그대로 적용합니다. 수기 입력 때 더해지는 +1%와 인센티브는 적용하지 않습니다.'));
+  if (plan.rateDiff.length) {
+    checks.push(upCheck('info', `엑셀 수수료율이 제품 관리에 등록된 요율과 다른 품목 <b>${plan.rateDiff.length}건</b> · 등록 요율도 맞춰두시면 수기 입력과 차이가 줄어듭니다.`,
+      `<details><summary>품목 보기</summary>${upTable([{t:'품목'},{t:'처방월'},{t:'엑셀',num:1},{t:'등록 요율',num:1}],
+        plan.rateDiff.map(d => `<tr><td>${escapeHtml(d.name)}</td><td>${d.month}</td><td class="num">${d.excel}%</td><td class="num">${d.registered}%</td></tr>`))}</details>`));
+  }
+
+  // 이전 업로드·저장된 정산서와의 관계
+  if (plan.elsewhereLabels.length) {
+    const labels = plan.elsewhereLabels.map(escapeHtml).join(', ');
+    checks.push(upCheck(up.fixElsewhere ? 'warn' : 'err', `같은 내용의 파일을 이미 <b>${labels}</b>(으)로 올렸습니다. 이대로 저장하면 같은 품목이 두 번 들어갑니다. 정산월을 이전과 같게 입력하거나, 그때 정산월을 잘못 입력했다면 아래를 선택하세요.`,
+      `<div class="inline-opts"><label><input type="checkbox" name="upFixElsewhere" ${up.fixElsewhere ? 'checked' : ''}> 그때 정산월을 잘못 입력했습니다 — 그 업로드(${labels})를 지우고 이번 정산월로 다시 저장</label></div>`));
+  }
+  for (const g of plan.groups.filter(g => g.status === 'same')) {
+    checks.push(upCheck('info', `이미 올린 파일입니다 (<b>${escapeHtml(g.label)}</b>) · 다시 저장해도 중복되지 않고, 이 파일 품목을 파일 내용 그대로 다시 씁니다.`));
+    if (g.otherBatches.length) {
+      checks.push(upCheck('info', `같은 거래처·정산월로 올린 <b>다른 파일(추가분 등)</b>의 품목 ${g.otherItems}개(판매금액 ${money(g.otherSales)})는 그대로 둡니다.`,
+        `<div class="inline-opts"><label><input type="checkbox" name="upDropSiblings" ${up.dropSiblings ? 'checked' : ''}> 다른 파일 품목도 지우고 이 파일만 남기기</label></div>`));
+    }
+  }
+  if (plan.groupConflicts.length) {
+    const g0 = plan.groupConflicts[0];
+    checks.push(upCheck(up.groupMode ? 'info' : 'warn',
+      `같은 거래처·정산월(<b>${plan.groupConflicts.map(g => escapeHtml(g.label)).join(', ')}</b>)로 이미 올린 <b>다른 내용의 파일</b>이 있습니다 (정산서 ${plan.groupConflicts.reduce((a, g) => a + g.otherKeys.length, 0)}건 · 판매금액 ${money(plan.groupConflicts.reduce((a, g) => a + g.otherSales, 0))}). 이번 파일은 어떤 파일인가요?`,
+      `<div class="inline-opts">
+        <label><input type="radio" name="upGroup" value="replace" ${up.groupMode === 'replace' ? 'checked' : ''}> 수정본 — 이전 파일 품목을 지우고 이 파일로 교체</label>
+        <label><input type="radio" name="upGroup" value="add" ${up.groupMode === 'add' ? 'checked' : ''}> 추가분 — 이전 파일은 그대로 두고 이 파일 품목을 더하기</label>
+      </div>
+      <details><summary>이전 파일이 들어 있는 정산서 보기</summary>${upTable([{t:'정산서'}], g0.otherKeys.map(k => `<tr><td>${savedLabel(k)}</td></tr>`))}</details>`));
+  }
+  if (!plan.settlements.some(s => s.exists) && !plan.orphans.length) {
+    checks.push(upCheck('ok', '모두 새 정산서입니다 (기존 정산서와 겹치지 않음)'));
+  }
+  if (plan.appends.length) {
+    checks.push(upCheck('info', `다른 정산 파일로 올린 품목이 있는 정산서 <b>${plan.appends.length}건</b> · 기존 품목은 그대로 두고 이번 품목을 더합니다 (소급분 등).`,
+      `<details><summary>정산서 보기</summary>${upTable([{t:'처방월'},{t:'병원'},{t:'기존 엑셀 품목',num:1},{t:'이번 품목',num:1}],
+        plan.appends.map(s => `<tr><td>${s.month}</td><td>${escapeHtml(s.hospital)}</td><td class="num">${s.otherExcel}</td><td class="num">${s.newItems.length}</td></tr>`))}</details>`));
+  }
+  if (plan.orphans.length) {
+    const del = plan.orphans.filter(o => o.del).length;
+    checks.push(upCheck('warn', `이전에 올린 파일 품목이 이번 저장에서 빠지는 정산서 <b>${plan.orphans.length}건</b> · 그 품목을 뺍니다${del ? ` (${del}건은 품목이 없어져 정산서를 삭제)` : ''}.`,
+      `<details><summary>정산서 보기</summary>${upTable([{t:'처방월'},{t:'병원'},{t:'빠지는 품목',num:1},{t:'현재 판매금액',num:1},{t:'저장 후',num:1}],
+        plan.orphans.map(o => `<tr><td>${o.month}</td><td>${escapeHtml(o.hospital)}</td><td class="num">${o.removed}</td><td class="num">${money(o.prevSales)}</td><td class="num">${o.del ? '삭제' : money(o.total_sales)}</td></tr>`))}</details>`));
+  }
+  if (plan.manualConflicts.length) {
+    const n = plan.manualConflicts.reduce((a, s) => a + s.manual, 0);
+    const dup = plan.manualConflicts.reduce((a, s) => a + s.manualDup, 0);
+    checks.push(upCheck(up.manualMode ? 'info' : 'warn', `직접 입력했거나 수정·복사한 품목이 있는 정산서 <b>${plan.manualConflicts.length}건</b> (품목 ${n}개${dup ? ` · 그중 ${dup}개는 이번 엑셀과 같은 제품·단가` : ''}) · 어떻게 할지 골라주세요. 고른 방법은 아래 정산서 모두에 적용됩니다.`,
+      `<div class="inline-opts">
+        <label><input type="radio" name="upManual" value="replace" ${up.manualMode === 'replace' ? 'checked' : ''}> 엑셀 내용으로 교체 (직접 입력 품목 삭제)</label>
+        <label><input type="radio" name="upManual" value="keep" ${up.manualMode === 'keep' ? 'checked' : ''}> 엑셀에 없는 직접 입력 품목만 남기고 엑셀 품목 추가 (같은 제품·단가는 엑셀 것으로 교체)</label>
+        <label><input type="radio" name="upManual" value="skip" ${up.manualMode === 'skip' ? 'checked' : ''}> 이 정산서는 건너뛰기</label>
+      </div>
+      <details><summary>정산서 보기</summary>${upTable([{t:'처방월'},{t:'병원'},{t:'직접 입력 품목',num:1},{t:'엑셀과 같은 제품',num:1},{t:'현재 판매금액',num:1},{t:'엑셀 판매금액',num:1}],
+        plan.manualConflicts.map(s => `<tr><td>${s.month}</td><td>${escapeHtml(s.hospital)}</td><td class="num">${s.manual}</td><td class="num">${s.manualDup}</td><td class="num">${money(s.prevSales)}</td><td class="num">${money(s.excelSales)}</td></tr>`))}</details>`));
+  }
+  if (plan.merged.length) {
+    checks.push(upCheck('warn', `처방처 여러 곳이 한 병원으로 합쳐집니다: ${plan.merged.map(m => `<b>${escapeHtml(m.target)}</b> ← ${m.sources.map(escapeHtml).join(', ')}`).join(' / ')}`));
+  }
+  const autoCount = up.hospList.filter(h => up.hospHow[h.name] === 'auto').length;
+  const linkedExisting = new Set(list.map(s => s.hospital)).size - plan.newHospitals.length;
+  checks.push(upCheck('info', `병원 ${up.hospList.length}곳 · 새로 등록 <b>${plan.newHospitals.length}곳</b> · 기존 병원에 연결 ${linkedExisting}곳${autoCount ? ` (이름이 비슷해 자동 연결된 ${autoCount}곳은 아래 표 맨 위에서 확인해주세요)` : ''}`));
+  if (plan.distributorsToCreate.length || plan.linkHospitals.length) {
+    const parts = [];
+    if (plan.distributorsToCreate.length) parts.push(`거래처 <b>${plan.distributorsToCreate.map(escapeHtml).join(', ')}</b> 새로 등록 (수수료율 0% · CSO 정산 탭에서 입력)`);
+    if (plan.linkHospitals.length) parts.push(`거래처가 비어 있는 기존 병원 ${plan.linkHospitals.length}곳을 엑셀 거래처에 연결`);
+    checks.push(upCheck('info', parts.join(' · ')));
+  }
+
+  // 병원 연결 표
+  const existing = existingHospitalNames().slice().sort((a, b) => a.localeCompare(b, 'ko'));
+  const howBadge = { exact: '<span class="badge badge-new">같은 이름</span>', auto: '<span class="badge badge-auto">이름 유사 · 확인</span>',
+    memory: '<span class="badge badge-mem">지난번 선택</span>', new: '<span class="badge badge-changed">새로 등록</span>', manual: '<span class="badge badge-mem">직접 선택</span>' };
+  const hospRows = up.hospList.map((h, i) => {
+    const cur = up.hospMap[h.name];
+    const opts = [`<option value="__new__" ${cur === '__new__' ? 'selected' : ''}>＋ 새로 등록: ${escapeHtml(h.name)}</option>`]
+      .concat(existing.map(n => `<option value="${escapeHtml(n)}" ${cur === n ? 'selected' : ''}>${escapeHtml(n)}</option>`)).join('');
+    return `<tr><td>${escapeHtml(h.name)}</td><td>${escapeHtml(h.bizNo)}</td><td class="num">${h.count}</td><td class="num">${money(h.sales)}</td>
+      <td><select class="up-map" data-idx="${i}" aria-label="${escapeHtml(h.name)} 연결할 병원">${opts}</select></td><td>${howBadge[up.hospHow[h.name]] || ''}</td></tr>`;
+  });
+
+  const setRows = plan.settlements.map(s => {
+    let state = '<span class="badge badge-new">신규</span>';
+    if (!s.save) state = '<span class="badge badge-end">' + (up.manualMode === 'skip' ? '건너뜀' : '선택 필요') + '</span>';
+    else if (s.exists) state = '<span class="badge badge-over">기존 정산서에 반영</span>';
+    return `<tr><td>${s.month}</td><td>${escapeHtml(s.hospital)}</td><td class="num">${s.newItems.length}</td><td class="num">${money(s.excelSales)}</td><td class="num">${s.save ? money(s.total_sales) : '-'}</td><td class="num">${s.save ? money(s.total_fee) : '-'}</td><td>${state}</td></tr>`;
+  });
+
+  const btnLabel = `정산서 ${list.length}건 저장${plan.orphans.length ? ` · ${plan.orphans.length}건 정리` : ''}`;
+  box.innerHTML = `
+    <div class="card">
+      <h3>미리보기 · ${escapeHtml(up.fileName)}</h3>
+      <div class="small" style="margin-bottom:12px;">${cmrs.length ? `거래처 ${cmrs.map(escapeHtml).join(', ')} · ` : ''}${settleMonths.length ? `정산월 ${settleMonths.join(', ')} · ` : ''}처방월 ${[...new Set(up.rows.map(r => r.month))].sort().join(', ')}${up.rows.some(r => r.kind) ? ` · ${upCountBy(up.rows, 'kind')}` : ''}${up.rows.some(r => r.status) ? ` · 상태 ${upCountBy(up.rows, 'status')}` : ''}</div>
+      <div class="up-metrics">
+        <div class="up-metric"><div class="k">저장할 정산서</div><div class="v">${list.length}건</div></div>
+        <div class="up-metric"><div class="k">병원</div><div class="v">${new Set(list.map(s => s.hospital)).size}곳</div></div>
+        <div class="up-metric"><div class="k">엑셀 품목</div><div class="v">${itemCount}개</div></div>
+        <div class="up-metric"><div class="k">엑셀 판매금액</div><div class="v">${money(eSales)}</div></div>
+        <div class="up-metric"><div class="k">엑셀 수수료(부가세 포함)</div><div class="v">${money(eFee)}</div></div>
+      </div>
+      <div>${checks.join('')}</div>
+    </div>
+    <div class="card">
+      <h3>병원 연결</h3>
+      <div class="small" style="margin-bottom:10px;">엑셀의 처방처명을 어느 병원으로 저장할지 정합니다. 확인이 필요한 병원이 위에 있습니다. 직접 고른 연결은 다음 업로드 때 기억합니다.</div>
+      ${upTable([{t:'엑셀 처방처명'},{t:'사업자번호'},{t:'품목',num:1},{t:'판매금액',num:1},{t:'저장할 병원'},{t:''}], hospRows)}
+    </div>
+    <div class="card">
+      <details>
+        <summary style="cursor:pointer;font-weight:700;">정산서 ${plan.settlements.length}건 목록 보기</summary>
+        <div style="margin-top:10px;">${upTable([{t:'처방월'},{t:'병원'},{t:'엑셀 품목',num:1},{t:'엑셀 판매금액',num:1},{t:'저장 후 판매금액',num:1},{t:'저장 후 수수료',num:1},{t:''}], setRows)}</div>
+      </details>
+    </div>
+    <div class="card">
+      <div class="actions">
+        <button id="upSave" ${plan.blockReason ? 'disabled' : ''}>${btnLabel}</button>
+        <button id="upCancel" class="sec">취소</button>
+      </div>
+      <div id="upSaveMsg" class="small" style="margin-top:10px;" aria-live="polite">${escapeHtml(plan.blockReason)}</div>
+    </div>`;
+}
+
+async function handleUploadFile(file) {
+  if (!file) return;
+  const status = $('upStatus');
+  $('upPreview').innerHTML = '';
+  if (!/\.(xlsx|xls)$/i.test(file.name)) {
+    status.innerHTML = '<span style="color:#f87171;">.xlsx 또는 .xls 파일만 올릴 수 있습니다.</span>';
+    return;
+  }
+  status.textContent = '엑셀 파일을 읽는 중...';
+  try {
+    if (!st.userId) await requireCurrentUser();
+    const XLSX = await ensureXlsx();
+    const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellNF: true });
+    const parsed = parseSettlementSheet(XLSX, wb);
+    // 파일 내용 지문 (행 순서·파일 이름과 무관)
+    const fileHash = upHash(parsed.rows.map(r => [r.cmr, r.settleMonth, r.month, r.hospital, r.code, r.productName, r.price, r.ratePct, r.qty].join('\u0001')).sort().join('\n'));
+    const excelNames = [...new Set(parsed.rows.map(r => r.hospital))];
+    const { map, how } = defaultHospitalMapping(excelNames);
+    // 확인이 필요한 병원(이름 유사 자동 연결 → 새로 등록)을 위로. 순서는 처음 한 번만 정해 선택을 바꿔도 줄이 움직이지 않음
+    const order = { auto: 0, new: 1, memory: 2, exact: 3 };
+    const hospList = excelNames.map(name => {
+      const rs = parsed.rows.filter(r => r.hospital === name);
+      return { name, bizNo: (rs.find(r => r.bizNo) || {}).bizNo || '', count: rs.length, sales: rs.reduce((a, r) => a + r.price * r.qty, 0) };
+    }).sort((a, b) => (order[how[a.name]] - order[how[b.name]]) || a.name.localeCompare(b.name, 'ko'));
+    st.upload = { fileName: file.name, sheetName: parsed.sheetName, rows: parsed.rows, errors: parsed.errors, fileHash,
+      hospMap: map, hospHow: how, hospList, manualMode: null, groupMode: null, settleMonthInput: '', dropSiblings: false, fixElsewhere: false };
+    status.textContent = `${file.name} · ${parsed.rows.length}행을 읽었습니다. 아래 내용을 확인한 뒤 저장하세요.`;
+    renderUploadPreview();
+  } catch (e) {
+    st.upload = null;
+    status.innerHTML = `<span style="color:#f87171;">${escapeHtml(e.message || String(e))}</span>`;
+  } finally {
+    $('upFile').value = '';
+  }
+}
+
+async function saveUpload() {
+  const up = st.upload;
+  if (!up) return;
+  const plan = buildUploadPlan();
+  if (plan.blockReason) { renderUploadPreview(); return; }
+  const list = plan.toSave;
+  const existingCount = list.filter(s => s.exists).length;
+  const dropped = up.manualMode === 'replace' ? plan.manualConflicts.reduce((a, s) => a + s.manual, 0) : 0;
+  const delCount = plan.orphans.filter(o => o.del).length;
+  const lines = [`정산서 ${list.length}건을 저장합니다. (새 정산서 ${list.length - existingCount} · 기존 정산서에 반영 ${existingCount})`];
+  if (plan.groupConflicts.length && up.groupMode === 'replace') lines.push('같은 거래처·정산월로 이전에 올린 파일 품목은 이 파일로 교체됩니다.');
+  if (up.dropSiblings && plan.groups.some(g => g.status === 'same' && g.otherBatches.length)) lines.push('같은 거래처·정산월로 올린 다른 파일(추가분 등) 품목을 지웁니다.');
+  if (up.fixElsewhere && plan.elsewhereLabels.length) lines.push(`잘못 입력했던 업로드(${plan.elsewhereLabels.join(', ')})를 지우고 이번 정산월로 다시 저장합니다.`);
+  if (plan.orphans.length) lines.push(`이번 파일에 없는 정산서 ${plan.orphans.length}건에서 이전 파일 품목을 뺍니다${delCount ? ` (${delCount}건 삭제)` : ''}.`);
+  if (dropped) lines.push(`직접 입력한 품목 ${dropped}개가 엑셀 내용으로 교체되어 삭제됩니다.`);
+  lines.push('진행할까요?');
+  if (!confirm(lines.join('\n'))) return;
+  const btn = $('upSave'), msg = $('upSaveMsg');
+  btn.disabled = true; btn.textContent = '저장 중...';
+  let savedCount = 0;
+  try {
+    await requireCurrentUser();
+    const uid = st.userId;
+    const step = async (label, promise) => { const { error } = await promise; if (error) throw new Error(`${label}: ${error.message}`); };
+    if (plan.distributorsToCreate.length) {
+      await step('거래처 등록', sbClient.from('distributors').upsert(plan.distributorsToCreate.map(name => ({ user_id: uid, name, rate: 0 })), { onConflict: 'user_id,name', ignoreDuplicates: true }));
+    }
+    if (plan.newHospitals.length) {
+      await step('병원 등록', sbClient.from('hospitals').upsert(plan.newHospitals.map(h => ({ user_id: uid, name: h.name, distributor_name: h.distributor_name })), { onConflict: 'user_id,name', ignoreDuplicates: true }));
+    }
+    for (const h of plan.linkHospitals) {
+      await step('병원 거래처 연결', sbClient.from('hospitals').update({ distributor_name: h.distributor_name }).eq('user_id', uid).eq('name', h.name));
+    }
+    if (plan.months.length) {
+      await step('정산월 등록', sbClient.from('months').upsert(plan.months.map(month => ({ user_id: uid, month })), { onConflict: 'user_id,month', ignoreDuplicates: true }));
+    }
+    const now = new Date().toISOString();
+    const withKeys = items => items.map(it => it._k ? it : ({ ...it, _k: String(Date.now()) + Math.random() }));
+    const rows = [...list, ...plan.orphans.filter(o => !o.del)].map(s => ({
+      user_id: uid, key: s.key, hospital: s.hospital, month: s.month, items_json: withKeys(s.finalItems),
+      total_sales: s.total_sales, total_fee: s.total_fee, total_supply: s.total_supply, total_vat: s.total_vat, saved_at: now,
+    }));
+    for (let i = 0; i < rows.length; i += 25) {
+      const chunk = rows.slice(i, i + 25);
+      await step('정산서 저장', sbClient.from('settlements').upsert(chunk, { onConflict: 'user_id,key' }));
+      savedCount += chunk.length;
+      msg.textContent = `저장 중... ${savedCount}/${rows.length}`;
+    }
+    for (const o of plan.orphans.filter(o => o.del)) {
+      await step('빈 정산서 삭제', sbClient.from('settlements').delete().eq('user_id', uid).eq('key', o.key));
+    }
+    // 사용자가 직접 고른 연결만 기억 (자동 추측은 저장하지 않음)
+    const memory = loadHospMemory();
+    up.hospList.forEach(h => { if (up.hospHow[h.name] === 'manual') memory[h.name] = up.hospMap[h.name]; });
+    saveHospMemory(memory);
+
+    const result = {
+      fileName: up.fileName, count: list.length, existing: existingCount, created: list.length - existingCount,
+      cleaned: plan.orphans.length, deleted: delCount,
+      newHospitals: plan.newHospitals.length, sales: list.reduce((a, s) => a + s.excelSales, 0), fee: list.reduce((a, s) => a + s.excelFee, 0),
+      months: plan.months, dists: plan.distributorsToCreate,
+    };
+    st.upload = null;
+    try { await loadAll(); } catch (e) { console.warn('저장 후 새로고침 실패', e); }
+    renderUploadResult(result);
+  } catch (e) {
+    btn.disabled = false; btn.textContent = btnRetryLabel(plan);
+    msg.innerHTML = `<span style="color:#f87171;">저장 실패 — ${escapeHtml(e.message || String(e))}${savedCount ? ` (정산서 ${savedCount}건은 이미 저장됨. 같은 파일을 다시 올려 저장하면 그 내용을 다시 쓰므로 중복되지 않습니다)` : ''}</span>`;
+  }
+}
+const btnRetryLabel = plan => `정산서 ${plan.toSave.length}건 저장${plan.orphans.length ? ` · ${plan.orphans.length}건 정리` : ''}`;
+
+function renderUploadResult(r) {
+  $('upStatus').textContent = '';
+  $('upPreview').innerHTML = `
+    <div class="card">
+      <h3>저장 완료</h3>
+      <div class="summary">
+        <div class="metric"><span>파일</span><b>${escapeHtml(r.fileName)}</b></div>
+        <div class="metric"><span>정산서</span><b>${r.count}건 (새 정산서 ${r.created} · 기존 정산서에 반영 ${r.existing})</b></div>
+        ${r.cleaned ? `<div class="metric"><span>이전 파일 품목 정리</span><b>${r.cleaned}건 (삭제 ${r.deleted})</b></div>` : ''}
+        <div class="metric"><span>새로 등록한 병원</span><b>${r.newHospitals}곳</b></div>
+        <div class="metric"><span>처방월</span><b>${r.months.join(', ') || '-'}</b></div>
+        <div class="metric"><span>엑셀 판매금액</span><b>${money(r.sales)}</b></div>
+        <div class="metric"><span>엑셀 수수료(부가세 포함)</span><b>${money(r.fee)}</b></div>
+      </div>
+      ${r.dists.length ? `<div class="small" style="margin-top:10px;">거래처 ${r.dists.map(escapeHtml).join(', ')}를 수수료율 0%로 등록했습니다. CSO 정산 탭의 거래처 관리에서 수수료율을 입력해주세요.</div>` : ''}
+      <div class="actions" style="margin-top:12px;">
+        <button id="upGoMonthly" data-month="${escapeHtml(r.months[r.months.length - 1] || '')}">월별 현황에서 보기</button>
+        <button id="upGoCso" class="sec">CSO 정산 보기</button>
+      </div>
+    </div>`;
+}
+
+// 업로드 이벤트
+(function bindUpload() {
+  const drop = $('upDrop');
+  ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('drag'); }));
+  ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('drag'); }));
+  drop.addEventListener('drop', e => handleUploadFile(e.dataTransfer && e.dataTransfer.files[0]));
+  $('upFile').addEventListener('change', e => handleUploadFile(e.target.files[0]));
+  const box = $('upPreview');
+  box.addEventListener('change', e => {
+    const t = e.target;
+    if (!st.upload) return;
+    if (t.classList.contains('up-map')) {
+      const h = st.upload.hospList[Number(t.dataset.idx)];
+      if (h) {
+        st.upload.hospMap[h.name] = t.value;
+        st.upload.hospHow[h.name] = t.value === '__new__' ? 'new' : 'manual';
+        renderUploadPreview();
+      }
+    } else if (t.name === 'upManual') {
+      st.upload.manualMode = t.value;
+      renderUploadPreview();
+    } else if (t.name === 'upGroup') {
+      st.upload.groupMode = t.value;
+      renderUploadPreview();
+    } else if (t.name === 'upDropSiblings') {
+      st.upload.dropSiblings = t.checked;
+      renderUploadPreview();
+    } else if (t.name === 'upFixElsewhere') {
+      st.upload.fixElsewhere = t.checked;
+      renderUploadPreview();
+    } else if (t.id === 'upSettleMonth') {
+      st.upload.settleMonthInput = t.value.trim();
+      renderUploadPreview();
+    }
+  });
+  box.addEventListener('click', e => {
+    const id = e.target.id;
+    if (id === 'upSave') saveUpload();
+    else if (id === 'upCancel') { st.upload = null; box.innerHTML = ''; $('upStatus').textContent = ''; }
+    else if (id === 'upGoMonthly') {
+      const m = e.target.dataset.month;
+      if (m) { st.monthFilter = m; renderMonthFilter(); $('monthFilter').value = m; }
+      switchTabDirect('monthly');
+    } else if (id === 'upGoCso') switchTabDirect('cso');
+  });
+})();
 
 // =============================================
 // 이벤트 바인딩
@@ -1713,7 +2639,7 @@ document.querySelectorAll('.tab-btn[data-tab]').forEach(function(btn) {
   });
 });
 $('addItem').addEventListener('click', addItemFn);
-$('resetItems').addEventListener('click', () => { st.items=[]; render(); });
+$('resetItems').addEventListener('click', () => { st.items=[]; st.loadedKey = null; render(); });
 $('save').addEventListener('click', saveCurrent);
 $('showMonth').addEventListener('click', () => {
   const m = currentMonth();
