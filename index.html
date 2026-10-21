@@ -311,6 +311,20 @@ table select{padding:8px 34px 8px 10px;font-size:13px;min-width:180px}
   <!-- ===== 탭4: 제품 관리 ===== -->
   <div id="tab-admin" class="tab-content">
     <div class="card">
+      <h3>병원별 납품가</h3>
+      <div class="small" style="margin-bottom:12px;">병원에 실제로 납품하는 가격을 정해두면, 엑셀 업로드 때 <b>(납품가 − 엑셀 단가) × 수량</b>이 수수료에 더해집니다. 판매금액은 엑셀 단가 그대로입니다. 예) 리브솔주 엑셀 4,500원 · 납품가 6,650원 → 1개당 2,150원</div>
+      <div class="grid g2" style="margin-bottom:10px;">
+        <div><div class="small">병원</div><select id="spHospital"></select></div>
+        <div><div class="small">품목</div><input id="spProduct" list="spProductList" placeholder="품목명 입력·선택"><datalist id="spProductList"></datalist></div>
+        <div><div class="small">납품가 (원)</div><input id="spPrice" type="number" min="0" step="any" placeholder="예: 6650"></div>
+        <div><div class="small">적용 시작 처방월</div><input id="spFrom" placeholder="예: 2026-09"></div>
+      </div>
+      <div class="small" style="margin-bottom:10px;">저장하면 이 병원·품목이 들어 있는 정산서 중 <b>시작월 이후 것만</b> 바로 다시 계산됩니다 (바뀌기 전에 확인창이 뜹니다). 그 전 달은 그대로입니다.</div>
+      <div class="actions" style="margin-bottom:12px;"><button id="spSave" class="sec">납품가 저장</button></div>
+      <div id="spMsg" class="small" style="margin-bottom:8px;" aria-live="polite"></div>
+      <div id="spList"></div>
+    </div>
+    <div class="card">
       <h3>급여 제품 관리</h3>
       <div class="small" style="margin-bottom:12px;">제품별 적용시작월·종료월·수수료율 이력을 관리합니다. 정산월에 맞는 요율이 자동 적용됩니다.</div>
       <div class="actions" style="margin-bottom:12px;">
@@ -565,6 +579,7 @@ const st = {
   csoSelectionInitialized: false,
   upload: null,
   loadedKey: null, // 정산 입력 화면에 불러온 정산서 key (다른 key로 저장하면 복사로 봄)
+  supplyPrices: [], // 병원별 납품가 [{hospital, product_name, price}]
 };
 
 const $ = id => document.getElementById(id);
@@ -599,6 +614,7 @@ function clearPrivateState() {
   st.csoSelectionInitialized = false;
   st.upload = null;
   st.loadedKey = null;
+  st.supplyPrices = [];
   const upPreview = document.getElementById('upPreview');
   if (upPreview) upPreview.innerHTML = '';
   const upStatus = document.getElementById('upStatus');
@@ -613,7 +629,7 @@ function switchTab(name, btn) {
   document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   if (btn) btn.classList.add('active');
-  if (name === 'admin') renderAdminLists();
+  if (name === 'admin') { renderAdminLists(); renderSupplyPrices(); }
   if (name === 'monthly') renderMonthOverview();
   if (name === 'cso') { renderDistributors(); renderCsoOverview(); }
   if (name === 'upload' && st.upload) renderUploadPreview();
@@ -692,6 +708,14 @@ function getActiveProducts(month) {
 // =============================================
 // 계산
 // =============================================
+// 병원별 납품가가 있는 품목: (납품가 − 단가) × 수량을 수수료에 더함 (판매금액은 단가 기준 그대로)
+function hasSupplyPrice(item) {
+  return item && item.supplyPrice !== undefined && item.supplyPrice !== null && item.supplyPrice !== '' && Number.isFinite(Number(item.supplyPrice));
+}
+function supplyMargin(item) {
+  return hasSupplyPrice(item) ? (Number(item.supplyPrice) - Number(item.unitPrice || 0)) * Number(item.quantity || 0) : 0;
+}
+
 function hasFixedRate(item) {
   return item && item.fixedRate !== undefined && item.fixedRate !== null && item.fixedRate !== '';
 }
@@ -702,7 +726,7 @@ function calc(item, month) {
   if (hasFixedRate(item)) {
     const totalRate = Number(item.fixedRate) || 0;
     const sales = item.unitPrice * item.quantity;
-    const fee = sales * totalRate;
+    const fee = sales * totalRate + supplyMargin(item);
     const supply = fee / 1.1;
     const vat = fee - supply;
     return { sales, fee, supply, vat, rate: totalRate * 100 };
@@ -726,7 +750,7 @@ function calc(item, month) {
   const manual = Number(item.extraRate || 0);
   const totalRate = adjustedRate + incentive + manual;
   const sales = item.unitPrice * item.quantity;
-  const fee = sales * totalRate;
+  const fee = sales * totalRate + supplyMargin(item);
   const supply = fee / 1.1;
   const vat = fee - supply;
   return { sales, fee, supply, vat, rate: totalRate * 100 };
@@ -858,8 +882,17 @@ function setQuantity(k, v) { st.items = st.items.map(x => x._k===k ? toManualIte
 // 입력칸은 % 단위 → 저장은 소수 단위 (예: 1 입력 → 0.01)
 function setExtraRate(k, v) { st.items = st.items.map(x => x._k===k ? toManualItem({...x, extraRate: (Number(v)||0) / 100}) : x); render(); }
 function setFixedRate(k, v) { st.items = st.items.map(x => x._k===k ? toManualItem({...x, fixedRate: Math.max(0, Number(v)||0) / 100}) : x); render(); }
+function setSupplyPrice(k, v) {
+  st.items = st.items.map(x => {
+    if (x._k !== k) return x;
+    const y = { ...x };
+    if (String(v).trim() === '' || !Number.isFinite(Number(v))) delete y.supplyPrice; else y.supplyPrice = Math.max(0, Number(v));
+    return toManualItem(y);
+  });
+  render();
+}
 function setSettlementPerUnit(k, v) { st.items = st.items.map(x => x._k===k ? {...x, settlementPerUnit: Number(v)} : x); render(); }
-window.removeItem = removeItem; window.setQuantity = setQuantity; window.setExtraRate = setExtraRate; window.setFixedRate = setFixedRate; window.setSettlementPerUnit = setSettlementPerUnit;
+window.removeItem = removeItem; window.setQuantity = setQuantity; window.setExtraRate = setExtraRate; window.setFixedRate = setFixedRate; window.setSupplyPrice = setSupplyPrice; window.setSettlementPerUnit = setSettlementPerUnit;
 
 // =============================================
 // 렌더링
@@ -881,15 +914,17 @@ function render() {
       else if (isNonB) rateBreakdown = `수수료 없음 (출하가 ${fmt(item.shippingPrice||0)}원)`;
       else if (isNonA) rateBreakdown = `1개당 정산 ${fmt(item.settlementPerUnit||0)}원`;
       else rateBreakdown = `수수료 ${c.rate.toFixed(1)}%`;
+      if (hasSupplyPrice(item)) rateBreakdown += ` · 납품가 ${fmt(item.supplyPrice)}원 (차액 ${fmt(Number(item.supplyPrice) - Number(item.unitPrice || 0))}원/개)`;
       // extraRate·fixedRate는 소수(0.01 = 1%)로 저장, 입력칸은 %로 표시
       const pct = v => +(Number(v||0) * 100).toFixed(4);
       const extraInput = isCov ? `<div><div class="small" style="margin-bottom:6px;">추가 수수료(%)</div><input type="number" step="0.5" value="${pct(item.extraRate)}" onchange="setExtraRate('${item._k}',this.value)" style="text-align:center;"/></div>` : '';
       const fixedInput = isFixed ? `<div><div class="small" style="margin-bottom:6px;">수수료율(%) · 엑셀 기준</div><input type="number" step="any" min="0" value="${pct(item.fixedRate)}" onchange="setFixedRate('${item._k}',this.value)" style="text-align:center;"/></div>` : '';
+      const spInput = (isCov || isFixed) ? `<div><div class="small" style="margin-bottom:6px;">납품가(원) · 비우면 없음</div><input type="number" min="0" step="any" value="${hasSupplyPrice(item) ? Number(item.supplyPrice) : ''}" placeholder="없음" onchange="setSupplyPrice('${item._k}',this.value)" style="text-align:center;"/></div>` : '';
       const settleInput = isNonA ? `<div><div class="small" style="margin-bottom:6px;">1개당 정산금액(원)</div><input type="number" min="0" value="${item.settlementPerUnit||0}" onchange="setSettlementPerUnit('${item._k}',this.value)" style="text-align:center;"/></div>` : '';
       return `<div class="item">
         <div style="font-weight:800;font-size:16px">${badge}${escapeHtml(item.name)}</div>
         <div class="small">${escapeHtml(item.indication||'')} · 수량 ${fmtQty(item.quantity)} · 단가 ${fmt(item.unitPrice)}원 · ${rateBreakdown}</div>
-        <div style="margin:10px 0 6px;"><div class="grid g2"><div><div class="small" style="margin-bottom:6px;">수량 수정</div><input type="number" min="0" step="any" value="${item.quantity}" onchange="setQuantity('${item._k}',this.value)" style="text-align:center;"/></div>${extraInput}${fixedInput}${settleInput}</div></div>
+        <div style="margin:10px 0 6px;"><div class="grid g2"><div><div class="small" style="margin-bottom:6px;">수량 수정</div><input type="number" min="0" step="any" value="${item.quantity}" onchange="setQuantity('${item._k}',this.value)" style="text-align:center;"/></div>${extraInput}${fixedInput}${spInput}${settleInput}</div></div>
         <div class="metric"><span>판매금액</span><b>${money(c.sales)}</b></div>
         <div class="metric"><span>수수료(부가세 포함)</span><b>${money(c.fee)}</b></div>
         <div class="metric"><span>공급가액</span><b>${money(c.supply)}</b></div>
@@ -1037,6 +1072,11 @@ async function loadMeta() {
   st.hospitals = (hosp||[]).map(x=>x.name);
   st.months = (months||[]).map(x=>x.month);
   st.distributors = dists || [];
+  // 병원별 납품가 (표가 없거나 오류여도 나머지 기능은 그대로 동작)
+  try {
+    const { data: sp, error: spErr } = await sbClient.from('supply_prices').select('*').eq('user_id', st.userId).order('hospital');
+    st.supplyPrices = spErr ? [] : (sp || []);
+  } catch (e) { st.supplyPrices = []; }
   if (!st.hospitals.length) st.hospitals = ['병원'];
   if (!st.months.length) st.months = ['2026-07'];
 }
@@ -1810,6 +1850,126 @@ function openMonthPdf() {
 }
 
 // =============================================
+// 병원별 납품가 (차액을 수수료로)
+// =============================================
+// 처방월에 맞는 납품가: 시작월이 그 달 이전인 것 중 가장 최근
+function supplyPriceFor(hospital, productName, month, table = st.supplyPrices) {
+  const rows = (table || []).filter(x => x.hospital === hospital && x.product_name === productName && (!month || (x.effective_from || '0000-00') <= month));
+  if (!rows.length) return null;
+  rows.sort((a, b) => String(b.effective_from || '').localeCompare(String(a.effective_from || '')));
+  return Number(rows[0].price);
+}
+
+function latestSavedMonth() {
+  return uniqSorted((st.saved || []).map(s => s.month)).pop() || '';
+}
+
+function renderSupplyPrices() {
+  const hosps = (st.hospitalInfo || []).map(h => h.name).sort((a, b) => a.localeCompare(b, 'ko'));
+  const sel = $('spHospital');
+  const cur = sel.value;
+  sel.innerHTML = hosps.map(h => `<option value="${escapeHtml(h)}">${escapeHtml(h)}</option>`).join('');
+  if (cur && hosps.includes(cur)) sel.value = cur;
+  if (!$('spFrom').value) $('spFrom').value = latestSavedMonth();
+  const names = new Set([...(st.coveredProducts || []), ...(st.noncoveredProducts || [])].map(p => p.name));
+  (st.saved || []).forEach(s => (s.items_json || []).forEach(it => it.name && names.add(it.name)));
+  $('spProductList').innerHTML = [...names].sort((a, b) => a.localeCompare(b, 'ko')).map(n => `<option value="${escapeHtml(n)}"></option>`).join('');
+  const list = (st.supplyPrices || []).slice().sort((a, b) => a.hospital.localeCompare(b.hospital, 'ko') || a.product_name.localeCompare(b.product_name, 'ko') || String(a.effective_from).localeCompare(String(b.effective_from)));
+  $('spList').innerHTML = list.length ? `<div class="table-wrap"><table><thead><tr><th>병원</th><th>품목</th><th>적용 시작</th><th class="num">납품가</th><th></th></tr></thead><tbody>${
+    list.map((x, i) => `<tr><td>${escapeHtml(x.hospital)}</td><td>${escapeHtml(x.product_name)}</td><td>${escapeHtml(x.effective_from || '')}~</td><td class="num">${fmt(x.price)}원</td>
+      <td><button class="sec sp-edit" data-i="${i}" style="width:auto;padding:5px 10px;font-size:12px;">수정</button>
+      <button class="del sp-del" data-i="${i}" style="width:auto;padding:5px 10px;font-size:12px;">삭제</button></td></tr>`).join('')
+  }</tbody></table></div>` : '<div class="small">등록된 납품가가 없습니다.</div>';
+  $('spList').dataset.rows = JSON.stringify(list.map(x => [x.hospital, x.product_name, x.price, x.effective_from]));
+}
+
+// 납품가 표가 바뀐 뒤(newTable) 이 병원·품목이 든 정산서 중 fromMonth 이후 것을 다시 계산한 결과
+function supplyPriceChanges(hospital, productName, fromMonth, newTable) {
+  const R = x => Math.round(upRound(x, 6));
+  return (st.saved || []).filter(s => s.hospital === hospital && s.month >= fromMonth && (s.items_json || []).some(it => it.name === productName)).map(s => {
+    const price = supplyPriceFor(hospital, productName, s.month, newTable);
+    const items = (s.items_json || []).map(it => {
+      if (it.name !== productName) return it;
+      const y = { ...it };
+      if (price === null) delete y.supplyPrice; else y.supplyPrice = price;
+      return y;
+    });
+    let sales = 0, fee = 0, sup = 0, vat = 0;
+    items.forEach(it => { const c = calc(it, s.month); sales += c.sales; fee += c.fee; sup += c.supply; vat += c.vat; });
+    const totals = { total_sales: R(sales), total_fee: R(fee), total_supply: R(sup), total_vat: R(vat) };
+    return { s, items, totals, diff: totals.total_fee - Math.round(Number(s.total_fee) || 0) };
+  }).filter(c => c.diff !== 0 || JSON.stringify(c.items) !== JSON.stringify(c.s.items_json));
+}
+
+async function applySupplyChanges(changes) {
+  for (const c of changes) {
+    const { error } = await sbClient.from('settlements').update({ items_json: c.items, ...c.totals, saved_at: new Date().toISOString() })
+      .eq('user_id', st.userId).eq('key', c.s.key);
+    if (error) throw new Error(`${c.s.hospital} ${c.s.month} 정산서 갱신 실패: ${error.message}`);
+    c.s.items_json = c.items; Object.assign(c.s, c.totals);
+  }
+}
+
+function confirmSupplyChanges(title, changes) {
+  if (!changes.length) return confirm(`${title}\n바뀌는 정산서는 없습니다. 진행할까요?`);
+  const total = changes.reduce((a, c) => a + c.diff, 0);
+  const lines = changes.slice(0, 8).map(c => `· ${c.s.hospital} ${c.s.month}: 수수료 ${c.diff >= 0 ? '+' : ''}${fmt(c.diff)}원`);
+  if (changes.length > 8) lines.push(`· 외 ${changes.length - 8}건`);
+  return confirm(`${title}\n정산서 ${changes.length}건 · 수수료 ${total >= 0 ? '+' : ''}${fmt(total)}원이 바뀝니다.\n${lines.join('\n')}\n진행할까요?`);
+}
+
+async function saveSupplyPrice() {
+  const hospital = $('spHospital').value;
+  const product_name = $('spProduct').value.trim();
+  const price = Number($('spPrice').value);
+  const effective_from = normalizeMonth($('spFrom').value);
+  const msg = $('spMsg');
+  const err = t => { msg.innerHTML = `<span style="color:#f87171;">${escapeHtml(t)}</span>`; };
+  if (!hospital || !product_name) return err('병원과 품목을 골라주세요.');
+  if ($('spPrice').value === '' || !Number.isFinite(price) || price < 0) return err('납품가를 숫자로 입력해주세요.');
+  if (!/^\d{4}-\d{2}$/.test(effective_from)) return err('적용 시작 처방월을 2026-09처럼 입력해주세요.');
+  const row = { hospital, product_name, price, effective_from };
+  const newTable = (st.supplyPrices || []).filter(x => !(x.hospital === hospital && x.product_name === product_name && x.effective_from === effective_from)).concat([row]);
+  const changes = supplyPriceChanges(hospital, product_name, effective_from, newTable);
+  if (!confirmSupplyChanges(`${hospital} · ${product_name} 납품가 ${fmt(price)}원 (${effective_from}부터)`, changes)) return;
+  try {
+    await requireCurrentUser();
+    const { error } = await sbClient.from('supply_prices').upsert({ user_id: st.userId, ...row, updated_at: new Date().toISOString() }, { onConflict: 'user_id,hospital,product_name,effective_from' });
+    if (error) throw new Error('납품가 저장 실패: ' + error.message);
+    st.supplyPrices = newTable;
+    await applySupplyChanges(changes);
+  } catch (e) { return err(e.message || String(e)); }
+  msg.textContent = `저장했습니다. 정산서 ${changes.length}건을 다시 계산했습니다.`;
+  $('spProduct').value = ''; $('spPrice').value = '';
+  renderSupplyPrices(); renderSaved(); renderMonthOverview();
+}
+
+async function deleteSupplyPrice(hospital, product_name, effective_from) {
+  const newTable = (st.supplyPrices || []).filter(x => !(x.hospital === hospital && x.product_name === product_name && x.effective_from === effective_from));
+  const changes = supplyPriceChanges(hospital, product_name, effective_from, newTable);
+  if (!confirmSupplyChanges(`${hospital} · ${product_name} 납품가(${effective_from}부터)를 삭제합니다.`, changes)) return;
+  try {
+    const { error } = await sbClient.from('supply_prices').delete().eq('user_id', st.userId).eq('hospital', hospital).eq('product_name', product_name).eq('effective_from', effective_from);
+    if (error) throw new Error('삭제 실패: ' + error.message);
+    st.supplyPrices = newTable;
+    await applySupplyChanges(changes);
+  } catch (e) { alert(e.message || String(e)); return; }
+  $('spMsg').textContent = `삭제했습니다. 정산서 ${changes.length}건을 다시 계산했습니다.`;
+  renderSupplyPrices(); renderSaved(); renderMonthOverview();
+}
+
+(function bindSupplyPrices() {
+  $('spSave').addEventListener('click', saveSupplyPrice);
+  $('spList').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const rows = JSON.parse($('spList').dataset.rows || '[]');
+    const r = rows[Number(b.dataset.i)]; if (!r) return;
+    if (b.classList.contains('sp-del')) deleteSupplyPrice(r[0], r[1], r[3]);
+    else if (b.classList.contains('sp-edit')) { $('spHospital').value = r[0]; $('spProduct').value = r[1]; $('spPrice').value = r[2]; $('spFrom').value = r[3] || ''; $('spPrice').focus(); }
+  });
+})();
+
+// =============================================
 // 엑셀 업로드 (거래처 정산 엑셀 → 병원·처방월별 정산서)
 // =============================================
 // 저장 규칙
@@ -2188,6 +2348,8 @@ function buildUploadPlan() {
       batch: fg.batch,
       batchLabel: fg.label,
     });
+    const sp = supplyPriceFor(target, name, row.month);
+    if (sp !== null) g.items[g.items.length - 1].supplyPrice = sp;
   }
 
   // 부동소수점 오차(예: 281956.49999999)로 반올림이 틀어지지 않도록 소수 6자리에서 먼저 정리
@@ -2255,7 +2417,20 @@ function buildUploadPlan() {
   else if (manualConflicts.length && !up.manualMode) blockReason = '직접 입력한 품목이 있는 정산서를 어떻게 할지 먼저 골라주세요.';
   else if (!toSave.length && !orphans.length) blockReason = '저장할 정산서가 없습니다.';
 
+  // 납품가 요약 (저장할 정산서 기준)
+  const spItems = toSave.flatMap(s => s.newItems.map(it => ({ ...it, hospital: s.hospital, month: s.month })));
+  const supplyApplied = spItems.filter(hasSupplyPrice);
+  const supplyMarginSum = supplyApplied.reduce((a, it) => a + supplyMargin(it), 0);
+  const supplyNegative = supplyApplied.filter(it => Number(it.supplyPrice) < Number(it.unitPrice));
+  const zeroNoSupply = new Map();
+  spItems.filter(it => !hasSupplyPrice(it) && Number(it.fixedRate) === 0).forEach(it => {
+    const k = it.hospital + '|' + it.name;
+    if (!zeroNoSupply.has(k)) zeroNoSupply.set(k, { hospital: it.hospital, name: it.name, price: it.unitPrice, qty: 0 });
+    zeroNoSupply.get(k).qty += Number(it.quantity) || 0;
+  });
+
   return {
+    supplyApplied, supplyMarginSum, supplyNegative, zeroNoSupply: [...zeroNoSupply.values()],
     settlements, toSave, orphans, groups, groupConflicts, needSettleMonth, typedSettleMonth, blockReason, elsewhereLabels: [...new Set(elsewhere.values())],
     newHospitals, linkHospitals, distributorsToCreate, merged, ratesLookFractional, manualConflicts,
     months: [...new Set(toSave.map(s => s.month))].sort(),
@@ -2331,6 +2506,19 @@ function renderUploadPreview() {
         plan.unmatched.map(u => `<tr><td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.code)}</td><td class="num">${u.count}</td></tr>`))}</details>`));
   }
   checks.push(upCheck('info', '수수료율은 엑셀의 기본수수료(%)를 그대로 적용합니다. 수기 입력 때 더해지는 +1%와 인센티브는 적용하지 않습니다.'));
+  if (plan.supplyApplied.length) {
+    checks.push(upCheck('info', `병원별 납품가 적용 <b>${plan.supplyApplied.length}품목</b> · 차액 수수료 <b>${plan.supplyMarginSum >= 0 ? '+' : ''}${money(plan.supplyMarginSum)}</b> (아래 수수료에 포함)`,
+      `<details><summary>품목 보기</summary>${upTable([{t:'병원'},{t:'품목'},{t:'엑셀 단가',num:1},{t:'납품가',num:1},{t:'수량',num:1},{t:'차액 수수료',num:1}],
+        plan.supplyApplied.map(it => `<tr><td>${escapeHtml(it.hospital)}</td><td>${escapeHtml(it.name)}</td><td class="num">${fmt(it.unitPrice)}</td><td class="num">${fmt(it.supplyPrice)}</td><td class="num">${fmtQty(it.quantity)}</td><td class="num">${money(supplyMargin(it))}</td></tr>`))}</details>`));
+  }
+  if (plan.supplyNegative.length) {
+    checks.push(upCheck('warn', `납품가가 엑셀 단가보다 낮은 품목 <b>${plan.supplyNegative.length}개</b> · 차액만큼 수수료가 줄어듭니다. 납품가를 확인해주세요.`));
+  }
+  if (plan.zeroNoSupply.length) {
+    checks.push(upCheck('info', `수수료율 0%인데 납품가가 없는 품목 <b>${plan.zeroNoSupply.length}건</b> · 제품 관리 탭의 "병원별 납품가"에 정해두면 차액이 수수료에 더해집니다.`,
+      `<details><summary>품목 보기</summary>${upTable([{t:'병원'},{t:'품목'},{t:'엑셀 단가',num:1},{t:'수량',num:1}],
+        plan.zeroNoSupply.map(z => `<tr><td>${escapeHtml(z.hospital)}</td><td>${escapeHtml(z.name)}</td><td class="num">${fmt(z.price)}</td><td class="num">${fmtQty(z.qty)}</td></tr>`))}</details>`));
+  }
   if (plan.rateDiff.length) {
     checks.push(upCheck('info', `엑셀 수수료율이 제품 관리에 등록된 요율과 다른 품목 <b>${plan.rateDiff.length}건</b> · 등록 요율도 맞춰두시면 수기 입력과 차이가 줄어듭니다.`,
       `<details><summary>품목 보기</summary>${upTable([{t:'품목'},{t:'처방월'},{t:'엑셀',num:1},{t:'등록 요율',num:1}],
@@ -2428,7 +2616,7 @@ function renderUploadPreview() {
         <div class="up-metric"><div class="k">병원</div><div class="v">${new Set(list.map(s => s.hospital)).size}곳</div></div>
         <div class="up-metric"><div class="k">엑셀 품목</div><div class="v">${itemCount}개</div></div>
         <div class="up-metric"><div class="k">엑셀 판매금액</div><div class="v">${money(eSales)}</div></div>
-        <div class="up-metric"><div class="k">엑셀 수수료(부가세 포함)</div><div class="v">${money(eFee)}</div></div>
+        <div class="up-metric"><div class="k">수수료(부가세 포함)</div><div class="v">${money(eFee)}</div></div>
       </div>
       <div>${checks.join('')}</div>
     </div>
@@ -2572,7 +2760,7 @@ function renderUploadResult(r) {
         <div class="metric"><span>새로 등록한 병원</span><b>${r.newHospitals}곳</b></div>
         <div class="metric"><span>처방월</span><b>${r.months.join(', ') || '-'}</b></div>
         <div class="metric"><span>엑셀 판매금액</span><b>${money(r.sales)}</b></div>
-        <div class="metric"><span>엑셀 수수료(부가세 포함)</span><b>${money(r.fee)}</b></div>
+        <div class="metric"><span>수수료(부가세 포함)</span><b>${money(r.fee)}</b></div>
       </div>
       ${r.dists.length ? `<div class="small" style="margin-top:10px;">거래처 ${r.dists.map(escapeHtml).join(', ')}를 수수료율 0%로 등록했습니다. CSO 정산 탭의 거래처 관리에서 수수료율을 입력해주세요.</div>` : ''}
       <div class="actions" style="margin-top:12px;">
