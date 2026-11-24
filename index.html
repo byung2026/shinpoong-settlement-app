@@ -5,87 +5,172 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>신풍제약 정산 계산기</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<meta name="theme-color" content="#ffffff">
 <style>
-body{margin:0;background:linear-gradient(180deg,#020617,#0f172a 35%,#111827);color:#f8fafc;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif}
-.wrap{max-width:1080px;margin:0 auto;padding:16px}
-.card{background:#111827;border:1px solid #334155;border-radius:16px;padding:14px;margin-bottom:12px}
+/* ===== A안: 블루·화이트 + 네이비 메뉴 (회전일 차트와 같은 디자인, 2026-11) ===== */
+:root{
+  --bg:#F4F6FA; --card:#fff; --ink:#191F28; --sub:#4E5968; --mute:#6B7684; --line:#EEF0F4; --line2:#E1E5EB;
+  --blue:#1E5EF3; --blue-d:#1849C6; --blue-bg:#EAF1FF; --navy:#1B2B4B; --navy-l:#2E4068; --navy-t:#B8C4DA;
+  --red:#B42318; --red-bg:#FEECEB; --org:#A64F00; --org-bg:#FFF1E0; --grn:#157F3D; --grn-bg:#E7F6EC; --chip:#F2F4F6;
+}
+*{box-sizing:border-box}
+:root{color-scheme:only light}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;font-size:15px;line-height:1.45;letter-spacing:-.01em;-webkit-font-smoothing:antialiased}
+h3{font-size:17px;font-weight:800;margin:0 0 12px}
+b,strong{font-variant-numeric:tabular-nums}
+.wrap{width:100%;max-width:1080px;margin:0 auto;padding:20px 24px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:14px}
 .grid{display:grid;gap:12px} .g2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .g3{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)}
-input,select,button{width:100%;min-width:0;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid #334155;background:#020617;color:#f8fafc;font-size:15px}
-select{-webkit-appearance:none;-moz-appearance:none;appearance:none;background-image:url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%2394a3b8'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:18px;padding-right:38px;cursor:pointer;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
+input,select,button{width:100%;min-width:0;box-sizing:border-box;padding:12px;border-radius:12px;border:1px solid var(--line2);background:#fff;color:var(--ink);font-size:16px;font-family:inherit}
+input:focus,select:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(30,94,243,.12)}
+select{-webkit-appearance:none;-moz-appearance:none;appearance:none;background-image:url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%236B7684'%3E%3Cpath fill-rule='evenodd' d='M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z' clip-rule='evenodd'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;background-size:18px;padding-right:38px;cursor:pointer;text-overflow:ellipsis;overflow:hidden;white-space:nowrap}
 .grid>div{min-width:0}
-button{border:none;font-weight:700;background:linear-gradient(90deg,#38bdf8,#22c55e);color:#001018;cursor:pointer}
-button.sec{background:#020617;color:#f8fafc;border:1px solid #334155}
-button.del{background:#3f1111;color:#fecaca;border:1px solid #7f1d1d}
-button.alt{background:linear-gradient(90deg,#a78bfa,#60a5fa);color:white}
-button.warn{background:linear-gradient(90deg,#f59e0b,#ef4444);color:white}
-.small{font-size:12px;color:#cbd5e1}
-.metric{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(148,163,184,.12)}
+button{border:none;font-weight:700;background:var(--blue);color:#fff;cursor:pointer;font-size:15px}
+button:disabled{background:#E9ECF1;color:var(--sub);cursor:default}
+button.sec{background:var(--blue-bg);color:var(--blue);border:0}
+button.del{background:var(--red-bg);color:var(--red);border:0}
+button.alt{background:var(--navy);color:#fff}
+button.warn{background:var(--org-bg);color:var(--org)}
+.small{font-size:13px;color:var(--mute)}
+.metric{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
 .metric:last-child{border-bottom:none}
-.item{background:#020617;border:1px solid #334155;border-radius:14px;padding:12px;margin-bottom:10px}
-.summary{background:linear-gradient(135deg,rgba(56,189,248,.12),rgba(34,197,94,.12));border:1px solid rgba(56,189,248,.25);border-radius:14px;padding:12px}
+.metric>span{color:var(--sub)}
+.item{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px}
+.summary{background:#F4F8FF;border:1px solid #DCE7FF;border-radius:14px;padding:12px}
 .actions{display:flex;gap:8px;flex-wrap:wrap} .actions>*{flex:1;min-width:120px}
-.cso-selection-bar{display:none;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border:1px solid rgba(56,189,248,.28);border-radius:12px;background:rgba(56,189,248,.08)}
+.cso-selection-bar{display:none;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 12px;margin-bottom:12px;border:0;border-radius:12px;background:var(--blue-bg);color:var(--blue-d)}
 .cso-select-label{display:inline-flex;align-items:center;gap:8px;font-weight:700;cursor:pointer}
-.cso-select-label input,.cso-dist-checkbox{width:18px;height:18px;min-width:18px;margin:0;accent-color:#38bdf8;cursor:pointer}
+.cso-select-label input,.cso-dist-checkbox{width:20px;height:20px;min-width:20px;margin:0;accent-color:var(--blue);cursor:pointer}
 .cso-dist-title{display:flex;align-items:flex-start;gap:10px}
-.table-wrap{overflow-x:auto} table{width:100%;border-collapse:collapse;font-size:14px} th,td{padding:10px 8px;border-bottom:1px solid rgba(148,163,184,.12);text-align:left;white-space:nowrap} th{color:#cbd5e1;font-weight:600}
-.tab-bar{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap}
-.tab-btn{flex:1;min-width:100px;padding:10px;border-radius:12px;border:1px solid #334155;background:#020617;color:#94a3b8;font-weight:600;cursor:pointer;font-size:14px}
-.tab-btn.active{background:linear-gradient(90deg,#38bdf8,#22c55e);color:#001018;border:none}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch} table{width:100%;border-collapse:collapse;font-size:14px;font-variant-numeric:tabular-nums} th,td{padding:10px 8px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap} th{color:var(--sub);font-weight:700;background:#F7F9FC}
 .tab-content{display:none} .tab-content.active{display:block}
-.badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;margin-left:6px}
-.badge-new{background:#166534;color:#bbf7d0}
-.badge-changed{background:#92400e;color:#fde68a}
-.badge-end{background:#7f1d1d;color:#fecaca}
-.loading{text-align:center;padding:40px;color:#64748b}
-.config-warn{background:#1c0a00;border:1px solid #92400e;border-radius:12px;padding:14px;margin-bottom:16px;color:#fde68a}
-@media(max-width:760px){.g2,.g3{grid-template-columns:1fr} th,td{font-size:12px}}
+.badge{display:inline-block;padding:2px 8px;border-radius:7px;font-size:11.5px;font-weight:700;margin-left:6px}
+.badge-new{background:var(--grn-bg);color:var(--grn)}
+.badge-changed{background:#FFF4CC;color:#7A5A00}
+.badge-end{background:var(--red-bg);color:var(--red)}
+.loading{text-align:center;padding:40px;color:var(--mute)}
+.config-warn{background:#FFF8DB;border:0;border-radius:12px;padding:14px;margin-bottom:16px;color:#7A5A00}
+/* ===== 앱 틀: PC 좌측 메뉴 / 휴대폰 하단 메뉴 ===== */
+.app{display:flex;min-height:100vh}
+.side{width:236px;flex:0 0 236px;background:var(--navy);color:#fff;display:flex;flex-direction:column;gap:4px;padding:22px 14px;position:sticky;top:0;height:100vh;overflow-y:auto}
+.side .brand{display:flex;align-items:center;gap:10px;padding:4px 8px 22px}
+.side .logo{width:36px;height:36px;border-radius:10px;background:var(--blue);display:grid;place-items:center;font-weight:800;font-size:16px}
+.side .brand strong{display:block;font-size:16px;font-weight:800}
+.side .brand span{font-size:12px;color:var(--navy-t)}
+.nav-btn{display:flex;align-items:center;gap:12px;width:100%;min-height:46px;padding:0 12px;border:0;border-radius:12px;background:transparent;color:#D6DEEC;font-size:15px;font-weight:700;text-align:left;cursor:pointer}
+.nav-btn:hover{background:rgba(255,255,255,.06)}
+.nav-btn.active{background:var(--blue);color:#fff}
+.nav-btn svg,.bnav-btn svg{width:20px;height:20px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:20;background:rgba(255,255,255,.97);border-bottom:1px solid var(--line);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+.topbar .in{max-width:1080px;margin:0 auto;display:flex;align-items:center;gap:10px;padding:14px 24px;padding-top:max(14px, env(safe-area-inset-top))}
+.topbar h1{margin:0;flex:1;min-width:0;font-size:22px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#logoutBtn{width:auto;padding:9px 14px;font-size:13.5px;background:var(--chip);color:var(--sub);border-radius:10px}
+.bnav{display:none}
+.seg{display:none}
+@media(max-width:820px){
+  .side{display:none}
+  .wrap{padding:16px 16px calc(96px + env(safe-area-inset-bottom))}
+  .topbar .in{padding:12px 16px;padding-top:max(12px, env(safe-area-inset-top))}
+  .topbar h1{font-size:19px}
+  .bnav{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));position:fixed;left:0;right:0;bottom:0;z-index:30;background:rgba(255,255,255,.98);border-top:1px solid var(--line);padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+  .bnav-btn{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-height:54px;padding:0;border:0;background:none;color:#8B95A1;font-size:12px;font-weight:700;border-radius:12px}
+  .bnav-btn svg{width:22px;height:22px}
+  .bnav-btn.active{color:var(--blue)}
+  .seg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:4px;background:#E9ECF1;border-radius:12px;padding:4px;margin-bottom:14px}
+  .seg button{min-height:40px;padding:0;border:0;border-radius:9px;background:transparent;color:var(--mute);font-size:14.5px}
+  .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 2px rgba(16,24,40,.08)}
+  .g2,.g3{grid-template-columns:1fr} th,td{font-size:13px}
+}
+/* 더보기 (휴대폰) */
+.more-list{background:#fff;border:1px solid var(--line);border-radius:18px;padding:6px 16px}
+.more-list button{display:flex;align-items:center;gap:14px;min-height:62px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;color:var(--ink);text-align:left;padding:0}
+.more-list button:last-child{border-bottom:0}
+.more-list .mi{width:40px;height:40px;border-radius:12px;background:var(--blue-bg);color:var(--blue);display:grid;place-items:center;flex:0 0 auto}
+.more-list .mi svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.more-list .mt{flex:1;display:flex;flex-direction:column}.more-list .mt span{font-size:12.5px;color:var(--mute);font-weight:500}
+/* ===== 대시보드 ===== */
+.dash-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.dash-head .grow{flex:1}
+.dash-head select{width:auto;min-width:150px;background-color:var(--chip);border:0;font-weight:700;color:var(--sub)}
+.hero{position:relative;overflow:hidden;border-radius:22px;padding:22px 22px 18px;color:#fff;background:var(--blue);margin-bottom:16px}
+.hero:after{content:"";position:absolute;right:-60px;bottom:-90px;width:230px;height:230px;border-radius:50%;background:rgba(255,255,255,.12);pointer-events:none}
+.hero>*{position:relative;z-index:1}
+.hero .k{font-size:15px;font-weight:700;opacity:.95}
+.hero .v{font-size:38px;font-weight:800;letter-spacing:-.02em;line-height:1.2;margin:2px 0;white-space:nowrap;font-variant-numeric:tabular-nums}
+.hero .v small{font-size:20px;margin-left:2px}
+.hero .d{font-size:13px;opacity:.9}
+.hero .mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:16px}
+.hero .mini>div{background:rgba(255,255,255,.16);border-radius:12px;padding:9px 11px;min-width:0}
+.hero .mini .l{font-size:12px;opacity:.92}.hero .mini .n{font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.dash-grid{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;align-items:start}
+.dash-grid .card{margin-bottom:0}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:12px}
+.sec-h h3{margin:0}
+.bars{display:flex;align-items:flex-end;gap:10px;height:176px;padding-top:6px}
+.bars .b{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%}
+.bars .bv{font-size:12px;font-weight:700;color:var(--mute);white-space:nowrap}
+.bars .bb{width:70%;max-width:44px;border-radius:8px 8px 4px 4px;background:#BFD3FF;min-height:6px}
+.bars .bm{font-size:12px;color:var(--mute);font-weight:600;white-space:nowrap}
+.bars .b.cur .bv{color:var(--blue)}.bars .b.cur .bb{background:var(--blue)}
+.rank{display:flex;align-items:center;gap:12px;width:100%;padding:12px 2px;border:0;border-bottom:1px solid var(--line);border-radius:0;background:none;color:var(--ink);text-align:left;font-weight:400}
+.rank:last-child{border-bottom:0}
+.rank .no{width:26px;height:26px;border-radius:8px;background:var(--blue-bg);color:var(--blue);display:grid;place-items:center;font-size:13px;font-weight:800;flex:0 0 auto}
+.rank .nm{flex:1;min-width:0;display:flex;flex-direction:column}
+.rank .nm strong{font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rank .nm span{font-size:12.5px;color:var(--mute)}
+.rank .fee{font-size:15.5px;font-weight:800;white-space:nowrap}
+.quick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px}
+.quick button{min-height:54px;border-radius:14px;font-size:16px}
+.empty{padding:28px 10px;text-align:center;color:var(--mute)}
+@media(max-width:820px){.hero .v{font-size:32px}.dash-grid{grid-template-columns:minmax(0,1fr)}.hero .mini{grid-template-columns:minmax(0,1fr);gap:6px}.hero .mini>div{display:flex;justify-content:space-between;align-items:center;gap:10px}.hero .mini .l{font-size:13px}.hero .mini .n{font-size:15px;overflow:visible}}
+@media(max-width:360px){.hero .v{font-size:28px}.hero .mini>div{padding:8px}}
 /* 로그인 화면 */
-#loginScreen{position:fixed;inset:0;background:linear-gradient(180deg,#020617,#0f172a 35%,#111827);z-index:999;display:flex;align-items:center;justify-content:center;}
-.login-box{background:#111827;border:1px solid #334155;border-radius:20px;padding:36px 28px;width:90%;max-width:380px;}
-.login-box h2{margin:0 0 6px;font-size:22px;}
-.login-box .sub{color:#64748b;font-size:13px;margin-bottom:24px;}
+#loginScreen{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center;}
+.login-box{background:#fff;border:1px solid var(--line);border-radius:22px;padding:36px 28px;width:90%;max-width:380px;box-shadow:0 10px 30px rgba(16,24,40,.06)}
+.login-box h2{margin:0 0 6px;font-size:22px;font-weight:800}
+.login-box .sub{color:var(--mute);font-size:13.5px;margin-bottom:24px;}
 .login-field{margin-bottom:14px;}
-.login-field label{display:block;font-size:12px;color:#94a3b8;margin-bottom:6px;}
-.login-field input{background:#020617;border:1px solid #334155;color:#f8fafc;border-radius:12px;padding:12px;width:100%;box-sizing:border-box;font-size:15px;}
-.login-field input:focus{outline:none;border-color:#38bdf8;}
+.login-field label{display:block;font-size:13px;color:var(--sub);font-weight:600;margin-bottom:6px;}
+.login-field input{background:#fff;border:1px solid var(--line2);color:var(--ink);border-radius:12px;padding:12px;width:100%;box-sizing:border-box;font-size:16px;}
+.login-field input:focus{outline:none;border-color:var(--blue);}
 .remember-row{display:flex;align-items:center;gap:8px;margin-bottom:18px;}
-.remember-row input[type=checkbox]{width:auto;margin:0;}
-.remember-row label{font-size:13px;color:#94a3b8;cursor:pointer;}
-.login-btn{width:100%;padding:14px;border-radius:12px;border:none;background:linear-gradient(90deg,#38bdf8,#22c55e);color:#001018;font-size:16px;font-weight:700;cursor:pointer;}
-.login-error{color:#f87171;font-size:13px;margin-top:10px;text-align:center;min-height:20px;}
-.auth-screen{position:fixed;inset:0;background:linear-gradient(180deg,#020617,#0f172a 35%,#111827);z-index:1000;display:none;align-items:center;justify-content:center;}
-.auth-link{display:block;width:100%;margin-top:12px;padding:7px 0;border:none;background:transparent;color:#7dd3fc;font-size:13px;font-weight:600;text-align:center;cursor:pointer;}
+.remember-row input[type=checkbox]{width:auto;margin:0;accent-color:var(--blue)}
+.remember-row label{font-size:13.5px;color:var(--sub);cursor:pointer;}
+.login-btn{width:100%;padding:14px;border-radius:12px;border:none;background:var(--blue);color:#fff;font-size:16px;font-weight:700;cursor:pointer;}
+.login-error{color:var(--red);font-size:13.5px;margin-top:10px;text-align:center;min-height:20px;}
+.auth-screen{position:fixed;inset:0;background:var(--bg);z-index:1000;display:none;align-items:center;justify-content:center;}
+.auth-link{display:block;width:100%;margin-top:12px;padding:7px 0;border:none;background:transparent;color:var(--blue);font-size:13.5px;font-weight:600;text-align:center;cursor:pointer;}
 .auth-link:hover{text-decoration:underline;}
-.auth-message{font-size:13px;line-height:1.55;margin-top:12px;text-align:center;min-height:20px;color:#cbd5e1;}
-.auth-message.error{color:#f87171;}
-.auth-message.success{color:#86efac;}
-.password-guide{font-size:12px;color:#64748b;margin:-4px 0 14px;}
-/* 로그아웃 버튼 */
-#logoutBtn{position:fixed;top:16px;right:16px;z-index:100;padding:8px 16px;font-size:13px;width:auto;background:#1e293b;border:1px solid #334155;color:#94a3b8;border-radius:10px;cursor:pointer;}
+.auth-message{font-size:13.5px;line-height:1.55;margin-top:12px;text-align:center;min-height:20px;color:var(--sub);}
+.auth-message.error{color:var(--red);}
+.auth-message.success{color:var(--grn);}
+.password-guide{font-size:12.5px;color:var(--mute);margin:-4px 0 14px;}
 /* 엑셀 업로드 */
-.drop-zone{display:block;border:2px dashed #334155;border-radius:14px;padding:28px 16px;text-align:center;color:#94a3b8;cursor:pointer;transition:border-color .15s,background .15s}
-.drop-zone:hover,.drop-zone.drag{border-color:#38bdf8;background:rgba(56,189,248,.08);color:#e2e8f0}
-.drop-zone b{color:#e2e8f0}
+.drop-zone{display:block;border:2px dashed #C9D6F2;border-radius:18px;padding:30px 16px;text-align:center;color:var(--mute);cursor:pointer;background:#fff;transition:border-color .15s,background .15s}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--blue);background:#F4F8FF;color:var(--sub)}
+.drop-zone b{color:var(--ink)}
 .up-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px}
-.up-metric{background:#020617;border:1px solid #334155;border-radius:12px;padding:10px 12px;min-width:0}
-.up-metric .k{font-size:12px;color:#94a3b8}
+.up-metric{background:#F4F6FA;border:0;border-radius:12px;padding:10px 12px;min-width:0}
+.up-metric .k{font-size:12.5px;color:var(--mute)}
 .up-metric .v{font-size:18px;font-weight:800;margin-top:2px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
-.check{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid rgba(148,163,184,.12);font-size:14px;line-height:1.5}
+.check{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px;line-height:1.5}
 .check:last-child{border-bottom:none}
 .check .ic{flex:0 0 20px;font-weight:800;text-align:center}
 .check>div:last-child{min-width:0;flex:1}
-.check.ok .ic{color:#22c55e}.check.warn .ic{color:#f59e0b}.check.err .ic{color:#ef4444}.check.info .ic{color:#38bdf8}
-.check details{margin-top:6px}.check summary{cursor:pointer;color:#7dd3fc;font-size:12px}
+.check.ok .ic{color:var(--grn)}.check.warn .ic{color:var(--org)}.check.err .ic{color:var(--red)}.check.info .ic{color:var(--blue)}
+.check details{margin-top:6px}.check summary{cursor:pointer;color:var(--blue);font-size:13px}
 .check .table-wrap{margin-top:6px;max-height:280px;overflow:auto}
-.badge-over{background:#78350f;color:#fde68a}
-.badge-auto{background:#1e3a5f;color:#bae6fd}
-.badge-mem{background:#3b0764;color:#e9d5ff}
+.badge-over{background:#FFF4CC;color:#7A5A00}
+.badge-auto{background:var(--blue-bg);color:var(--blue-d)}
+.badge-mem{background:#F1E9FB;color:#6A3FA0}
 th.num,td.num{text-align:right;font-variant-numeric:tabular-nums}
-table select{padding:8px 34px 8px 10px;font-size:13px;min-width:180px}
+table select{padding:8px 34px 8px 10px;font-size:14px;min-width:180px}
 .inline-opts{display:flex;gap:16px;flex-wrap:wrap;margin:8px 0}
 .inline-opts label{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-size:14px}
-.inline-opts input{width:auto;margin:0;accent-color:#38bdf8}
+.inline-opts input{width:auto;margin:0;accent-color:var(--blue)}
 </style>
 </head>
 <body>
@@ -148,24 +233,68 @@ table select{padding:8px 34px 8px 10px;font-size:13px;min-width:180px}
   </div>
 </div>
 
-<!-- 로그아웃 버튼 -->
-<button id="logoutBtn" style="display:none;">로그아웃</button>
-
+<div class="app" id="appShell">
+  <nav class="side" aria-label="주 메뉴">
+    <div class="brand"><div class="logo" aria-hidden="true">₩</div><div><strong>CSO 정산</strong><span>신풍제약 의원 영업</span></div></div>
+    <button type="button" class="nav-btn active" data-tab="dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7M6 9.5V20h4v-6h4v6h4V9.5"/></svg><span>대시보드</span></button>
+    <button type="button" class="nav-btn" data-tab="monthly"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16M15 10h4a1 1 0 0 1 1 1v10M3 21h18M8 8h3M8 12h3M8 16h3"/></svg><span>병원별 정산</span></button>
+    <button type="button" class="nav-btn" data-tab="settlement"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg><span>정산 입력</span></button>
+    <button type="button" class="nav-btn" data-tab="upload"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg><span>엑셀 업로드</span></button>
+    <button type="button" class="nav-btn" data-tab="cso"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18M3 12h18M3 17h18M7 3v18"/></svg><span>CSO 정산</span></button>
+    <button type="button" class="nav-btn" data-tab="admin"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8"/></svg><span>제품 관리</span></button>
+  </nav>
+<div class="main">
+<header class="topbar"><div class="in">
+  <h1 id="pageTitle">대시보드</h1>
+  <button id="logoutBtn" type="button" style="display:none;">로그아웃</button>
+</div></header>
 <div class="wrap">
-  <h1>신풍제약 정산 계산기</h1>
-  <div class="small" style="margin-bottom:4px;">Supabase 연동 · 기간별 수수료율 자동 적용 · 제품 유효기간 관리</div>
 
-  <!-- 탭 바 -->
-  <div class="tab-bar">
-    <button class="tab-btn active" data-tab="settlement">정산 입력</button>
-    <button class="tab-btn" data-tab="upload">엑셀 업로드</button>
-    <button class="tab-btn" data-tab="monthly">월별 현황</button>
-    <button class="tab-btn" data-tab="cso">CSO 정산</button>
-    <button class="tab-btn" data-tab="admin">제품 관리</button>
+  <!-- ===== 대시보드 ===== -->
+  <div id="tab-dashboard" class="tab-content active">
+    <div class="dash-head">
+      <div class="grow small">저장된 정산서 기준</div>
+      <select id="dashMonth" aria-label="정산월 선택"></select>
+    </div>
+    <section class="hero" aria-live="polite">
+      <div class="k" id="dashHeroLabel">정산 수수료 합계 (부가세 포함)</div>
+      <div class="v"><span id="dashFee">0</span><small>원</small></div>
+      <div class="d" id="dashSub">저장된 정산서가 없습니다</div>
+      <div class="mini">
+        <div><div class="l">판매금액</div><div class="n" id="dashSales">0원</div></div>
+        <div><div class="l">공급가액</div><div class="n" id="dashSupply">0원</div></div>
+        <div><div class="l">부가세</div><div class="n" id="dashVat">0원</div></div>
+      </div>
+    </section>
+    <div class="dash-grid">
+      <div class="card">
+        <div class="sec-h"><h3>월별 수수료 추이</h3><span class="small">단위: 만원 · 부가세 포함</span></div>
+        <div id="dashTrend" class="bars"></div>
+      </div>
+      <div class="card">
+        <div class="sec-h"><h3>수수료 많은 병원</h3><button type="button" id="dashAll" class="sec" style="width:auto;padding:8px 12px;font-size:13.5px;">전체 보기</button></div>
+        <div id="dashTop"></div>
+      </div>
+    </div>
+    <div class="quick">
+      <button type="button" data-tab="settlement">+ 정산 입력</button>
+      <button type="button" class="sec" data-tab="upload">엑셀 업로드</button>
+    </div>
+  </div>
+
+  <!-- ===== 더보기 (휴대폰) ===== -->
+  <div id="tab-more" class="tab-content">
+    <div class="more-list">
+      <button type="button" data-tab="admin"><span class="mi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8"/></svg></span><span class="mt"><strong>제품 관리</strong><span>납품가 · 급여/비급여 제품 · 수수료율 이력</span></span></button>
+      <button type="button" data-tab="settlement"><span class="mi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span><span class="mt"><strong>정산 입력</strong><span>병원별로 직접 입력·저장</span></span></button>
+      <button type="button" data-tab="monthly"><span class="mi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16M15 10h4a1 1 0 0 1 1 1v10M3 21h18M8 8h3M8 12h3M8 16h3"/></svg></span><span class="mt"><strong>병원별 정산</strong><span>월별 전체 병원 현황 · PDF</span></span></button>
+      <button type="button" id="moreLogout"><span class="mi"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4h3a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-3M10 16l-4-4 4-4M6 12h10"/></svg></span><span class="mt"><strong>로그아웃</strong><span>다른 계정으로 바꾸기</span></span></button>
+    </div>
   </div>
 
   <!-- ===== 탭1: 정산 입력 ===== -->
-  <div id="tab-settlement" class="tab-content active">
+  <div id="tab-settlement" class="tab-content">
+    <div class="seg" role="group" aria-label="정산 화면 전환"><button type="button" data-tab="monthly">병원별 정산</button><button type="button" class="on" data-tab="settlement">정산 입력</button></div>
     <div class="grid g2">
       <div class="card">
         <h3>기본 정보</h3>
@@ -260,6 +389,7 @@ table select{padding:8px 34px 8px 10px;font-size:13px;min-width:180px}
 
   <!-- ===== 탭2: 월별 현황 ===== -->
   <div id="tab-monthly" class="tab-content">
+    <div class="seg" role="group" aria-label="정산 화면 전환"><button type="button" class="on" data-tab="monthly">병원별 정산</button><button type="button" data-tab="settlement">정산 입력</button></div>
     <div class="card" id="monthOverviewCard">
       <h3>월별 전체 병원 현황</h3>
       <div class="grid g2" style="margin-bottom:12px;">
@@ -349,10 +479,19 @@ table select{padding:8px 34px 8px 10px;font-size:13px;min-width:180px}
   <input id="cfgKey" type="hidden">
   <div id="cfgStatus" style="display:none;"></div>
 </div>
+</div>
+</div>
+<nav class="bnav" aria-label="주 메뉴">
+  <button type="button" class="bnav-btn active" data-tab="dashboard" data-group="dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7M6 9.5V20h4v-6h4v6h4V9.5"/></svg><span>홈</span></button>
+  <button type="button" class="bnav-btn" data-tab="monthly" data-group="settle"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4h6M8 4H6a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V5a1 1 0 0 0-1-1h-2M9 11h6M9 15h4"/></svg><span>정산</span></button>
+  <button type="button" class="bnav-btn" data-tab="upload" data-group="upload"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg><span>업로드</span></button>
+  <button type="button" class="bnav-btn" data-tab="cso" data-group="cso"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h18M3 12h18M3 17h18M7 3v18"/></svg><span>CSO</span></button>
+  <button type="button" class="bnav-btn" data-tab="more" data-group="more"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg><span>더보기</span></button>
+</nav>
 
 <!-- 모달: 제품 추가 -->
-<div id="modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;align-items:center;justify-content:center;">
-  <div style="background:#111827;border:1px solid #334155;border-radius:16px;padding:20px;width:90%;max-width:480px;max-height:90vh;overflow-y:auto;">
+<div id="modal" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.45);z-index:100;align-items:center;justify-content:center;">
+  <div style="background:#fff;border:0;border-radius:20px;padding:20px;width:90%;max-width:480px;max-height:90vh;overflow-y:auto;box-shadow:0 12px 36px rgba(16,24,40,.18);">
     <h3 id="modalTitle">제품 추가</h3>
     <div id="modalBody"></div>
     <div class="actions" style="margin-top:16px;">
@@ -535,6 +674,7 @@ document.getElementById('logoutBtn').addEventListener('click', async () => {
   document.getElementById('loginScreen').style.display = 'flex';
   document.getElementById('logoutBtn').style.display = 'none';
   document.getElementById('loginPw').value = '';
+  st.dashMonth = null; switchTab('dashboard');
 });
 
 function showApp() {
@@ -548,9 +688,9 @@ async function testConnection() {
     await requireCurrentUser();
     const { error } = await sbClient.from('hospitals').select('count').eq('user_id', st.userId).limit(1);
     if (error) throw error;
-    el.innerHTML = '<span style="color:#22c55e;">✓ 연결 성공!</span>';
+    el.innerHTML = '<span style="color:#157F3D;">✓ 연결 성공!</span>';
   } catch(e) {
-    el.innerHTML = `<span style="color:#ef4444;">✗ 연결 실패: ${e.message}</span>`;
+    el.innerHTML = `<span style="color:#B42318;">✗ 연결 실패: ${e.message}</span>`;
   }
 }
 
@@ -580,6 +720,7 @@ const st = {
   upload: null,
   loadedKey: null, // 정산 입력 화면에 불러온 정산서 key (다른 key로 저장하면 복사로 봄)
   supplyPrices: [], // 병원별 납품가 [{hospital, product_name, price}]
+  dashMonth: null, // 대시보드에서 보는 정산월
 };
 
 const $ = id => document.getElementById(id);
@@ -624,15 +765,89 @@ function clearPrivateState() {
 // =============================================
 // 탭 전환
 // =============================================
-function switchTab(name, btn) {
-  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-  document.getElementById('tab-' + name).classList.add('active');
-  if (btn) btn.classList.add('active');
+const TAB_TITLES = { dashboard: '대시보드', monthly: '병원별 정산', settlement: '정산 입력', upload: '엑셀 업로드', cso: 'CSO 정산', admin: '제품 관리', more: '더보기' };
+const TAB_GROUP = { dashboard: 'dashboard', monthly: 'settle', settlement: 'settle', upload: 'upload', cso: 'cso', admin: 'more', more: 'more' };
+function switchTab(name) {
+  if (!document.getElementById('tab-' + name)) name = 'dashboard';
+  const prev = document.querySelector('.tab-content.active');
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.toggle('active', el.id === 'tab-' + name));
+  document.querySelectorAll('.nav-btn[data-tab]').forEach(el => el.classList.toggle('active', el.dataset.tab === name));
+  document.querySelectorAll('.bnav-btn').forEach(el => {
+    const on = el.dataset.group === TAB_GROUP[name];
+    el.classList.toggle('active', on);
+    if (on) el.setAttribute('aria-current', 'page'); else el.removeAttribute('aria-current');
+  });
+  const title = $('pageTitle'); if (title) title.textContent = TAB_TITLES[name] || '';
+  if (prev && prev.id !== 'tab-' + name) window.scrollTo(0, 0);
+  if (name === 'dashboard') renderDashboard();
   if (name === 'admin') { renderAdminLists(); renderSupplyPrices(); }
   if (name === 'monthly') renderMonthOverview();
   if (name === 'cso') { renderDistributors(); renderCsoOverview(); }
   if (name === 'upload' && st.upload) renderUploadPreview();
+}
+
+// =============================================
+// 대시보드 (저장된 정산서 기준, 계산은 calc() 그대로)
+// =============================================
+const monthLabelKo = m => { const [y, mm] = String(m || '').split('-'); return y && mm ? `${y}년 ${Number(mm)}월` : String(m || ''); };
+function monthSums(month) {
+  const rows = st.saved.filter(r => r.month === month);
+  let sales = 0, fee = 0, supply = 0, vat = 0;
+  const hosps = rows.map(row => {
+    let s = 0, f = 0;
+    (row.items_json || []).forEach(item => {
+      const c = calc(item, row.month);
+      sales += c.sales; fee += c.fee; supply += c.supply; vat += c.vat;
+      s += c.sales; f += c.fee;
+    });
+    return { key: row.key, hospital: row.hospital, count: (row.items_json || []).length, sales: s, fee: f };
+  });
+  return { rows, hosps, sales, fee, supply, vat };
+}
+function renderDashboard() {
+  const sel = $('dashMonth'); if (!sel) return;
+  const months = uniqSorted(st.saved.map(r => r.month));
+  if (!months.length) {
+    sel.innerHTML = ''; sel.style.display = 'none';
+    $('dashHeroLabel').textContent = '정산 수수료 합계 (부가세 포함)';
+    $('dashFee').textContent = '0'; $('dashSales').textContent = '0원'; $('dashSupply').textContent = '0원'; $('dashVat').textContent = '0원';
+    $('dashSub').textContent = '저장된 정산서가 없습니다';
+    $('dashTrend').innerHTML = '<div class="empty" style="width:100%;">정산서를 저장하면 월별 추이가 보입니다.</div>';
+    $('dashTop').innerHTML = '<div class="empty">정산 입력이나 엑셀 업로드로 시작하세요.</div>';
+    return;
+  }
+  sel.style.display = '';
+  if (!st.dashMonth || !months.includes(st.dashMonth)) st.dashMonth = months[months.length - 1];
+  sel.innerHTML = months.slice().reverse().map(m => `<option value="${escapeHtml(m)}">${escapeHtml(monthLabelKo(m))}</option>`).join('');
+  sel.value = st.dashMonth;
+  const cur = monthSums(st.dashMonth);
+  const idx = months.indexOf(st.dashMonth);
+  $('dashHeroLabel').textContent = `${monthLabelKo(st.dashMonth)} 정산 수수료 합계 (부가세 포함)`;
+  $('dashFee').textContent = fmt(cur.fee);
+  $('dashSales').textContent = money(cur.sales);
+  $('dashSupply').textContent = money(cur.supply);
+  $('dashVat').textContent = money(cur.vat);
+  let sub = `병원 ${cur.rows.length}처`;
+  if (idx > 0) {
+    const prevFee = monthSums(months[idx - 1]).fee;
+    if (prevFee > 0) { const d = Math.round((cur.fee - prevFee) / prevFee * 1000) / 10; sub += ` · 지난달보다 ${d >= 0 ? '+' : ''}${d}%`; }
+  }
+  $('dashSub').textContent = sub;
+  const span = months.slice(Math.max(0, idx - 5), idx + 1);
+  const fees = span.map(m => monthSums(m).fee);
+  const max = Math.max(1, ...fees);
+  $('dashTrend').innerHTML = span.map((m, i) => {
+    const h = Math.max(6, Math.round(fees[i] / max * 120));
+    const label = Number(String(m).split('-')[1] || 0) + '월';
+    return `<div class="b${m === st.dashMonth ? ' cur' : ''}"><span class="bv">${fmt(fees[i] / 10000)}</span><div class="bb" style="height:${h}px"></div><span class="bm">${escapeHtml(label)}</span></div>`;
+  }).join('');
+  const top = cur.hosps.slice().sort((a, b) => b.fee - a.fee).slice(0, 5);
+  $('dashTop').innerHTML = top.length ? top.map((h, i) => `
+    <button type="button" class="rank" onclick="loadSettlement(${jsArg(h.key)})">
+      <span class="no">${i + 1}</span>
+      <span class="nm"><strong>${escapeHtml(h.hospital)}</strong><span>판매 ${money(h.sales)} · ${h.count}품목</span></span>
+      <span class="fee">${money(h.fee)}</span>
+    </button>`).join('') : '<div class="empty">이 달에 저장된 병원이 없습니다.</div>';
 }
 
 // =============================================
@@ -825,8 +1040,8 @@ function updateRateInfo() {
   const adjustedBase = base === 0 ? 0 : base + 0.01;
   const incentive = getIncentiveForMonth(p.name, m);
   const total = (adjustedBase + incentive) * 100;
-  let info = `<div class="small" style="color:#94a3b8;">`;
-  info += `${m} 기준 수수료율: <b style="color:#38bdf8;">${total.toFixed(0)}%</b>`;
+  let info = `<div class="small" style="color:#6B7684;">`;
+  info += `${m} 기준 수수료율: <b style="color:#1E5EF3;">${total.toFixed(0)}%</b>`;
   if (incentive > 0) info += ` (기본 ${(adjustedBase*100).toFixed(0)}% + 인센티브 ${(incentive*100).toFixed(0)}%)`;
   info += `</div>`;
   el.innerHTML = info;
@@ -1045,6 +1260,7 @@ async function loadAll() {
   renderCsoMonthFilter();
   updateHeader();
   render();
+  if ($('tab-dashboard').classList.contains('active')) renderDashboard();
 }
 
 async function loadCatalog() {
@@ -1174,10 +1390,7 @@ function copyToNextMonth(key) {
   alert(`${next} 정산으로 복사했습니다. 수량 확인 후 저장하세요.`);
 }
 
-function switchTabDirect(name) {
-  const btn = document.querySelector(`.tab-btn[data-tab="${name}"]`);
-  switchTab(name, btn);
-}
+function switchTabDirect(name) { switchTab(name); }
 
 window.loadSettlement = loadSettlement;
 window.duplicateSettlement = duplicateSettlement;
@@ -1304,7 +1517,7 @@ function editCsoHospitalItems(key, editingItems) {
   if (!settlement) return;
   const items = editingItems || settlement.items_json || [];
   const itemsHtml = items.length ? items.map((item, idx) => `
-    <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #334155;flex-wrap:wrap;">
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #EEF0F4;flex-wrap:wrap;">
       <div style="flex:1;min-width:120px;font-size:14px;font-weight:600;">${escapeHtml(item.name)}</div>
       <div style="display:flex;align-items:center;gap:6px;">
         <span class="small">수량</span>
@@ -1519,15 +1732,15 @@ function renderCsoOverview() {
       const rowFee = Math.round(rowSales * rate);
       totalSales += rowSales; totalFee += rowFee;
       return `
-        <tr style="background:rgba(56,189,248,.06);">
+        <tr style="background:#F4F8FF;">
           <td colspan="3" style="font-weight:700;padding:8px;">
             ${escapeHtml(row.hospital)} <span class="small">${escapeHtml(row.month)}</span>
             <button onclick="editCsoHospitalItems(${jsArg(row.key)})" class="sec" style="width:auto;padding:3px 10px;font-size:11px;margin-left:8px;">품목 수정</button>
           </td>
         </tr>
         ${itemRows}
-        <tr style="border-top:1px solid #334155;">
-          <td colspan="2" style="text-align:right;color:#94a3b8;padding:6px 8px;">소계</td>
+        <tr style="border-top:1px solid #EEF0F4;">
+          <td colspan="2" style="text-align:right;color:#6B7684;padding:6px 8px;">소계</td>
           <td style="font-weight:700;">${money(rowSales)}</td>
         </tr>`;
     }).join('');
@@ -1550,18 +1763,18 @@ function renderCsoOverview() {
         <div style="text-align:right;">
           <div class="small">판매합계</div>
           <div style="font-weight:700;">${money(totalSales)}</div>
-          <div class="small" style="color:#38bdf8;">수수료 ${money(totalFee)}</div>
+          <div class="small" style="color:#1E5EF3;">수수료 ${money(totalFee)}</div>
         </div>
       </div>
       <div class="table-wrap">
         <table>
           <thead><tr><th>제품명</th><th>수량</th><th>판매금액</th></tr></thead>
           <tbody>${hospBlocks}</tbody>
-          <tfoot><tr style="font-weight:800;background:rgba(56,189,248,.1);">
+          <tfoot><tr style="font-weight:800;background:#EAF1FF;">
             <td colspan="2" style="text-align:right;padding:8px;">합계</td>
             <td>${money(totalSales)}</td>
           </tr>
-          <tr style="color:#38bdf8;font-weight:800;">
+          <tr style="color:#1E5EF3;font-weight:800;">
             <td colspan="2" style="text-align:right;padding:8px;">수수료</td>
             <td>${money(totalFee)}</td>
           </tr></tfoot>
@@ -1700,12 +1913,12 @@ function ensurePrintView() {
   if (printView) return printView;
   const wrap = document.createElement('div');
   wrap.id = 'printView';
-  wrap.style.cssText = 'display:none;position:fixed;inset:0;z-index:10000;background:#1e293b;flex-direction:column;';
+  wrap.style.cssText = 'display:none;position:fixed;inset:0;z-index:10000;background:#E9EDF3;flex-direction:column;';
   wrap.innerHTML = `
-    <div style="padding:10px 12px;padding-top:max(10px, env(safe-area-inset-top));background:#0f172a;border-bottom:1px solid #334155;">
+    <div style="padding:10px 12px;padding-top:max(10px, env(safe-area-inset-top));background:#1B2B4B;border-bottom:1px solid #2E4068;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
         <strong id="pvTitle" style="font-size:16px;color:#f8fafc;">정산서</strong>
-        <span style="font-size:12px;color:#94a3b8;">미리보기</span>
+        <span style="font-size:12px;color:#B8C4DA;">미리보기</span>
       </div>
       <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px;">
         <button id="pvPdf" type="button" style="padding:11px 8px;">PDF 저장</button>
@@ -2129,7 +2342,7 @@ async function saveSupplyPrice() {
   const price = Number($('spPrice').value);
   const effective_from = normalizeMonth($('spFrom').value);
   const msg = $('spMsg');
-  const err = t => { msg.innerHTML = `<span style="color:#f87171;">${escapeHtml(t)}</span>`; };
+  const err = t => { msg.innerHTML = `<span style="color:#B42318;">${escapeHtml(t)}</span>`; };
   if (!hospital || !product_name) return err('병원과 품목을 골라주세요.');
   if ($('spPrice').value === '' || !Number.isFinite(price) || price < 0) return err('납품가를 숫자로 입력해주세요.');
   if (!/^\d{4}-\d{2}$/.test(effective_from)) return err('적용 시작 처방월을 2026-09처럼 입력해주세요.');
@@ -2850,7 +3063,7 @@ async function handleUploadFile(file) {
   const status = $('upStatus');
   $('upPreview').innerHTML = '';
   if (!/\.(xlsx|xls)$/i.test(file.name)) {
-    status.innerHTML = '<span style="color:#f87171;">.xlsx 또는 .xls 파일만 올릴 수 있습니다.</span>';
+    status.innerHTML = '<span style="color:#B42318;">.xlsx 또는 .xls 파일만 올릴 수 있습니다.</span>';
     return;
   }
   status.textContent = '엑셀 파일을 읽는 중...';
@@ -2875,7 +3088,7 @@ async function handleUploadFile(file) {
     renderUploadPreview();
   } catch (e) {
     st.upload = null;
-    status.innerHTML = `<span style="color:#f87171;">${escapeHtml(e.message || String(e))}</span>`;
+    status.innerHTML = `<span style="color:#B42318;">${escapeHtml(e.message || String(e))}</span>`;
   } finally {
     $('upFile').value = '';
   }
@@ -2948,7 +3161,7 @@ async function saveUpload() {
     renderUploadResult(result);
   } catch (e) {
     btn.disabled = false; btn.textContent = btnRetryLabel(plan);
-    msg.innerHTML = `<span style="color:#f87171;">저장 실패 — ${escapeHtml(e.message || String(e))}${savedCount ? ` (정산서 ${savedCount}건은 이미 저장됨. 같은 파일을 다시 올려 저장하면 그 내용을 다시 쓰므로 중복되지 않습니다)` : ''}</span>`;
+    msg.innerHTML = `<span style="color:#B42318;">저장 실패 — ${escapeHtml(e.message || String(e))}${savedCount ? ` (정산서 ${savedCount}건은 이미 저장됨. 같은 파일을 다시 올려 저장하면 그 내용을 다시 쓰므로 중복되지 않습니다)` : ''}</span>`;
   }
 }
 const btnRetryLabel = plan => `정산서 ${plan.toSave.length}건 저장${plan.orphans.length ? ` · ${plan.orphans.length}건 정리` : ''}`;
@@ -3026,11 +3239,15 @@ function renderUploadResult(r) {
 // 이벤트 바인딩
 // =============================================
 // 탭 버튼
-document.querySelectorAll('.tab-btn[data-tab]').forEach(function(btn) {
-  btn.addEventListener('click', function() {
-    switchTab(this.getAttribute('data-tab'), this);
-  });
+document.querySelectorAll('button[data-tab]').forEach(function(btn) {
+  btn.addEventListener('click', function() { switchTab(this.getAttribute('data-tab')); });
 });
+$('dashMonth').addEventListener('change', e => { st.dashMonth = e.target.value; renderDashboard(); });
+$('dashAll').addEventListener('click', () => {
+  if (st.dashMonth) { st.monthFilter = st.dashMonth; renderMonthFilter(); $('monthFilter').value = st.dashMonth; }
+  switchTab('monthly');
+});
+$('moreLogout').addEventListener('click', () => $('logoutBtn').click());
 $('addItem').addEventListener('click', addItemFn);
 $('resetItems').addEventListener('click', () => { st.items=[]; st.loadedKey = null; render(); });
 $('save').addEventListener('click', saveCurrent);
