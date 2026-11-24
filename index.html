@@ -140,6 +140,118 @@ button.warn{background:var(--org-bg);color:var(--org)}
 .empty{padding:28px 10px;text-align:center;color:var(--mute)}
 @media(max-width:820px){.hero .v{font-size:32px}.dash-grid{grid-template-columns:minmax(0,1fr)}.hero .mini{grid-template-columns:minmax(0,1fr);gap:6px}.hero .mini>div{display:flex;justify-content:space-between;align-items:center;gap:10px}.hero .mini .l{font-size:13px}.hero .mini .n{font-size:15px;overflow:visible}}
 @media(max-width:360px){.hero .v{font-size:28px}.hero .mini>div{padding:8px}}
+/* ===== 2단계: 공통 부품 ===== */
+.lbl{display:block;font-size:13px;color:var(--sub);font-weight:600;margin-bottom:6px}
+.chip-title{font-size:12.5px;font-weight:700;color:var(--blue-d);background:var(--blue-bg);padding:4px 10px;border-radius:8px;max-width:60%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fold{border-top:1px solid var(--line);padding-top:10px}
+.fold summary{cursor:pointer;color:var(--blue);font-weight:700;font-size:14px;min-height:36px;display:flex;align-items:center;list-style:none}
+.fold summary::-webkit-details-marker{display:none}
+.fold summary:before{content:"+";display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;background:var(--blue-bg);margin-right:8px;font-weight:800}
+.fold[open] summary:before{content:"−"}
+.search{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--line2);border-radius:12px;padding:0 12px;color:var(--mute)}
+.search:focus-within{border-color:var(--blue);box-shadow:0 0 0 3px rgba(30,94,243,.12)}
+.search svg{width:20px;height:20px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round}
+.search input{border:0;padding:12px 0;background:transparent;box-shadow:none}
+.search input:focus{box-shadow:none}
+.kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-bottom:14px}
+.kpi{background:#fff;border:1px solid var(--line);border-radius:14px;padding:11px 12px;min-width:0}
+.kpi .l{font-size:12.5px;color:var(--mute)}
+.kpi .n{font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.kpi.hl{background:var(--blue-bg);border-color:#DCE7FF}.kpi.hl .l{color:var(--blue-d)}.kpi.hl .n{color:var(--blue)}
+/* 엑셀식 표: 첫 칸 고정, 합계 줄 */
+.xtable{width:100%;border-collapse:separate;border-spacing:0;font-size:14px;font-variant-numeric:tabular-nums}
+.xtable th,.xtable td{padding:10px 12px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:right;background:#fff}
+.xtable thead th{background:#F4F6FA;color:var(--sub);font-weight:700;border-bottom:1px solid #E5E8EE}
+.xtable th:first-child,.xtable td:first-child{position:sticky;left:0;z-index:1;text-align:left;font-weight:700;box-shadow:1px 0 0 var(--line)}
+.xtable td.fee{color:var(--blue);font-weight:700}
+.xtable tfoot td,.xtable tfoot th{background:var(--blue-bg);font-weight:800;border-bottom:0}
+.xtable tfoot td.fee{color:var(--blue)}
+.xwrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px}
+.swipe-hint{display:none;font-size:12px;color:var(--mute);margin:6px 2px 0}
+/* 병원별 정산 목록 */
+.hlist{background:#fff;border:1px solid var(--line);border-radius:18px;padding:4px 16px}
+.hrow{border-bottom:1px solid var(--line)}
+.hrow:last-child{border-bottom:0}
+.hhead{display:flex;align-items:center;gap:12px;width:100%;padding:14px 0;border:0;border-radius:0;background:none;color:var(--ink);text-align:left;font-weight:400}
+.hhead .nm{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.hhead .nm strong{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tags{display:flex;gap:6px;flex-wrap:wrap}
+.tag{font-size:12px;font-weight:700;padding:2px 8px;border-radius:7px;background:var(--chip);color:var(--sub)}
+.tag.b{background:var(--blue-bg);color:var(--blue-d)}
+.tag.o{background:var(--org-bg);color:var(--org)}
+.hhead .amt{display:flex;flex-direction:column;align-items:flex-end;gap:2px;white-space:nowrap}
+.hhead .amt strong{font-size:16px}
+.hhead .amt span{font-size:12.5px;color:var(--mute)}
+.hhead .chev{width:18px;height:18px;flex:0 0 auto;stroke:#B0B8C1;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
+.hrow.open .hhead .chev{transform:rotate(90deg)}
+.hdetail{display:none;padding:0 0 16px}
+.hrow.open .hdetail{display:block}
+.hdetail .mini4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-bottom:10px}
+.mini4>div{background:#F4F6FA;border-radius:12px;padding:9px 11px;min-width:0}
+.mini4 .l{font-size:12px;color:var(--mute)}.mini4 .n{font-size:15px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+.mini4 .hl{background:var(--blue-bg)}.mini4 .hl .l{color:var(--blue-d)}.mini4 .hl .n{color:var(--blue)}
+.list-tools{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:2px 2px 8px}
+.list-tools button{width:auto;padding:6px 12px;font-size:13px}
+/* 정산 품목 */
+.it{border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px;background:#fff}
+.it-top{display:flex;align-items:flex-start;gap:10px}
+.it-top .nm{flex:1;min-width:0}
+.it-top .nm strong{display:block;font-size:16px;font-weight:800}
+.it-top .nm .small{display:block;margin-top:2px;overflow-wrap:anywhere}
+.it-top .fee{text-align:right;white-space:nowrap}
+.it-top .fee strong{display:block;font-size:16px;color:var(--blue);font-variant-numeric:tabular-nums}
+.it-top .fee span{font-size:12px;color:var(--mute)}
+.it-x{width:40px;height:40px;flex:0 0 auto;border-radius:10px;background:var(--red-bg);color:var(--red);display:grid;place-items:center;padding:0}
+.it-x svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.it-in{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:10px 0}
+.it-in input{text-align:center;padding:10px}
+.it-in .small{margin-bottom:4px}
+.it-sum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.it-sum>div{background:#F4F6FA;border-radius:10px;padding:7px 9px;min-width:0}
+.it-sum span{display:block;font-size:11.5px;color:var(--mute)}
+.it-sum b{display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tag-x{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 7px;border-radius:6px;margin-right:6px;vertical-align:2px;background:var(--blue-bg);color:var(--blue-d)}
+.tag-x.n{background:#F1E9FB;color:#6A3FA0}
+/* 합계 바 (정산 입력·CSO) */
+.totbar{position:sticky;bottom:12px;z-index:15;background:var(--navy);color:#fff;border-radius:18px;padding:14px;margin-bottom:14px;display:flex;gap:12px;align-items:center;box-shadow:0 8px 24px rgba(27,43,75,.22)}
+.tb-grid{flex:1;min-width:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px 12px}
+.tb-grid>div{min-width:0}
+.tb-grid span{display:block;font-size:12px;color:var(--navy-t)}
+.tb-grid b{display:block;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.tb-grid b.hl{color:#9EC0FF}
+.totbar>button{width:auto;flex:0 0 auto;min-height:50px;padding:0 18px;border-radius:14px}
+.totbar[hidden]{display:none}
+.totbar>button.tot-more{display:none}
+.cb-sum{flex:1;min-width:0;display:flex;flex-direction:column}
+.cb-sum span{font-size:13px;color:var(--navy-t)}.cb-sum b{font-size:19px;font-variant-numeric:tabular-nums}
+/* CSO 거래처 카드 */
+.dcard{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px}
+.dcard.sel{border:2px solid var(--blue);padding:15px}
+.dcard-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.dcard-h .nm{flex:1;min-width:120px;font-size:17px;font-weight:800}
+.rate-in{display:inline-flex;align-items:center;gap:6px;background:var(--blue-bg);border-radius:10px;padding:4px 8px;color:var(--blue-d);font-size:13px;font-weight:700}
+.rate-in input{width:70px;padding:6px 8px;text-align:center;font-size:14px;font-weight:800;border-color:#C9D6F2}
+.dcard .mini4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:12px 0}
+.dcard .more-btn{background:var(--chip);color:var(--sub);min-height:44px}
+.dcard .ddetail{display:none;margin-top:12px}
+.dcard.open .ddetail{display:block}
+.xtable tr.grp td{background:#F4F8FF;text-align:left;font-weight:700}
+@media(max-width:820px){
+  .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .kpis .kpi:first-child{grid-column:1/-1}
+  .hdetail .mini4,.dcard .mini4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .swipe-hint{display:block}
+  .totbar{bottom:calc(74px + env(safe-area-inset-bottom));padding:10px 10px 10px 14px;gap:8px;border-radius:16px}
+  .tb-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:4px 10px}
+  .tb-grid>div:nth-child(n+3){display:none}
+  .totbar.x .tb-grid>div:nth-child(n+3){display:block}
+  .tb-grid b{font-size:14.5px}
+  .totbar>button{min-height:44px;padding:0 14px;border-radius:12px;font-size:14.5px}
+  .totbar>button.tot-more{display:block;background:transparent;color:var(--navy-t);padding:0 6px;font-size:13px;min-height:44px}
+  .it-sum{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .xtable th,.xtable td{padding:9px 10px;font-size:13px}
+  #monthOverviewCard .grid{grid-template-columns:minmax(0,1fr)!important}
+}
 /* 로그인 화면 */
 #loginScreen{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center;}
 .login-box{background:#fff;border:1px solid var(--line);border-radius:22px;padding:36px 28px;width:90%;max-width:380px;box-shadow:0 10px 30px rgba(16,24,40,.06)}
@@ -323,79 +435,81 @@ table select{padding:8px 34px 8px 10px;font-size:14px;min-width:180px}
     <div class="seg" role="group" aria-label="정산 화면 전환"><button type="button" data-tab="monthly">병원별 정산</button><button type="button" class="on" data-tab="settlement">정산 입력</button></div>
     <div class="grid g2">
       <div class="card">
-        <h3>기본 정보</h3>
+        <div class="sec-h"><h3>기본 정보</h3><span id="title" class="chip-title"></span></div>
         <div class="grid g2">
-          <div><div class="small">병원명 선택</div><select id="hospitalSelect"></select></div>
-          <div><div class="small">정산월 선택</div><select id="monthSelect"></select></div>
+          <div><label class="lbl" for="hospitalSelect">병원</label><select id="hospitalSelect"></select></div>
+          <div><label class="lbl" for="monthSelect">정산월</label><select id="monthSelect"></select></div>
         </div>
-        <div class="grid g2" style="margin-top:12px;">
-          <div><div class="small">새 병원명 추가</div><input id="hospitalInput" placeholder="병원명 입력"></div>
-          <div><div class="small">새 정산월 추가</div><input id="monthInput" placeholder="2026-07"></div>
-        </div>
-        <div style="margin-top:8px;">
-          <div class="small">거래처 선택 (병원 등록 시)</div>
-          <select id="hospitalDistributor" style="margin-top:4px;"><option value="">거래처 없음</option></select>
-        </div>
-        <div class="actions" style="margin-top:10px;">
-          <button id="addHospital" class="sec">병원명 등록</button>
-          <button id="addMonth" class="sec">정산월 등록</button>
-        </div>
-        <div class="summary" style="margin-top:12px;">
-          <div class="small">현재 정산</div>
-          <div id="title" style="font-size:20px;font-weight:800;margin-top:4px"></div>
-        </div>
+        <details class="fold" style="margin-top:12px;">
+          <summary>새 병원 · 정산월 등록</summary>
+          <div class="grid g2" style="margin-top:10px;">
+            <div><label class="lbl" for="hospitalInput">새 병원명</label><input id="hospitalInput" placeholder="병원명 입력"></div>
+            <div><label class="lbl" for="monthInput">새 정산월</label><input id="monthInput" placeholder="2026-07"></div>
+          </div>
+          <div style="margin-top:10px;">
+            <label class="lbl" for="hospitalDistributor">거래처 (병원 등록 시)</label>
+            <select id="hospitalDistributor"><option value="">거래처 없음</option></select>
+          </div>
+          <div class="actions" style="margin-top:10px;">
+            <button id="addHospital" class="sec">병원명 등록</button>
+            <button id="addMonth" class="sec">정산월 등록</button>
+          </div>
+        </details>
       </div>
       <div class="card">
-        <h3>핵심 합계</h3>
-        <div class="metric"><span>총 판매금액</span><b id="ts">0원</b></div>
-        <div class="metric"><span>총 수수료(부가세 포함)</span><b id="tf">0원</b></div>
-        <div class="metric"><span>공급가액</span><b id="tp">0원</b></div>
-        <div class="metric"><span>부가세</span><b id="tv">0원</b></div>
-        <div class="metric"><span>표면 수수료율</span><b id="dr">0%</b></div>
-        <div class="metric"><span>실질 수수료율</span><b id="rr">0%</b></div>
+        <h3>품목 추가</h3>
+        <label class="search" for="search"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"/></svg><input id="search" type="search" placeholder="제품명 검색" autocomplete="off"></label>
+        <div class="grid" style="grid-template-columns:minmax(0,1fr) 110px;margin-top:10px;">
+          <div><label class="lbl" for="product">제품</label><select id="product"></select></div>
+          <div><label class="lbl" for="qty">수량</label><input id="qty" type="number" min="0" step="any" value="1" inputmode="decimal" style="text-align:center;"></div>
+        </div>
+        <div id="methodRow" style="display:none;margin-top:10px;">
+          <label class="lbl" for="method">비급여 거래방식</label>
+          <select id="method">
+            <option value="A">방식 A · 정가거래 + 나중에 수수료 정산 (약가 × 수량)</option>
+            <option value="B">방식 B · 즉시 할인출하 (출하가 × 수량으로 기록, 수수료 0원)</option>
+          </select>
+        </div>
+        <div id="rateInfo" style="margin-top:10px;"></div>
+        <div class="actions" style="margin-top:10px;">
+          <button id="addItem">+ 정산 품목에 추가</button>
+          <button id="resetItems" class="sec">현재 품목 초기화</button>
+        </div>
       </div>
     </div>
 
     <div class="card">
-      <h3>품목 추가</h3>
-      <div class="grid g3">
-        <div><div class="small">제품 검색</div><input id="search" placeholder="제품명 검색"></div>
-        <div><div class="small">제품명</div><select id="product"></select></div>
-        <div><div class="small">수량</div><input id="qty" type="number" min="0" step="any" value="1"></div>
+      <div class="sec-h"><h3>정산 품목</h3><span class="small" id="itemCount"></span></div>
+      <div id="items"></div>
+    </div>
+
+    <div class="totbar" aria-live="polite">
+      <div class="tb-grid">
+        <div><span>판매금액</span><b id="ts">0원</b></div>
+        <div><span>수수료 (부가세 포함)</span><b id="tf" class="hl">0원</b></div>
+        <div><span>공급가액</span><b id="tp">0원</b></div>
+        <div><span>부가세</span><b id="tv">0원</b></div>
+        <div><span>표면 수수료율</span><b id="dr">0%</b></div>
+        <div><span>실질 수수료율</span><b id="rr">0%</b></div>
       </div>
-      <div id="methodRow" style="display:none;margin-top:10px;">
-        <div class="small" style="margin-bottom:6px;">비급여 거래방식</div>
-        <select id="method">
-          <option value="A">방식 A · 정가거래 + 나중에 수수료 정산 (약가 × 수량)</option>
-          <option value="B">방식 B · 즉시 할인출하 (출하가 × 수량으로 기록, 수수료 0원)</option>
-        </select>
-      </div>
-      <div id="rateInfo" style="margin-top:10px;"></div>
-      <div class="actions" style="margin-top:10px;">
-        <button id="addItem">정산 품목에 추가</button>
-        <button id="resetItems" class="sec">현재 품목 초기화</button>
-      </div>
+      <button type="button" class="tot-more" id="totMore" aria-expanded="false">자세히</button>
+      <button id="save" type="button">저장</button>
     </div>
 
     <div class="card">
-      <h3>저장 / 내보내기</h3>
+      <h3>내보내기 · 저장 목록</h3>
       <div class="actions">
-        <button id="save">현재 정산 저장</button>
-        <button id="showMonth" class="alt">선택 월 병원 보기</button>
+        <button id="downloadPdf" class="sec">PDF 정산서</button>
         <button id="downloadCsv" class="sec">CSV 다운로드</button>
-        <button id="downloadPdf" class="sec">PDF 보기</button>
+        <button id="showMonth" class="alt">선택 월 병원 보기</button>
       </div>
-      <div class="grid g2" style="margin-top:12px;">
-        <div><div class="small">저장 목록 월 필터</div><select id="savedMonthFilter"></select></div>
+      <div class="grid g2" style="margin-top:14px;">
+        <div><label class="lbl" for="savedMonthFilter">저장 목록 월</label><select id="savedMonthFilter"></select></div>
         <div></div>
       </div>
       <div id="saved" style="margin-top:12px;"></div>
     </div>
-
-    <div class="grid g2">
-      <div class="card"><h3>정산 품목</h3><div id="items"></div></div>
-      <div class="card"><h3>요약</h3><div id="summaryBox"></div></div>
-    </div>
+    <div id="summaryBox" hidden></div>
   </div>
 
   <!-- ===== 탭: 엑셀 업로드 ===== -->
@@ -413,41 +527,43 @@ table select{padding:8px 34px 8px 10px;font-size:14px;min-width:180px}
     <div id="upPreview"></div>
   </div>
 
-  <!-- ===== 탭2: 월별 현황 ===== -->
+  <!-- ===== 탭2: 병원별 정산 (월별 현황) ===== -->
   <div id="tab-monthly" class="tab-content">
     <div class="seg" role="group" aria-label="정산 화면 전환"><button type="button" class="on" data-tab="monthly">병원별 정산</button><button type="button" data-tab="settlement">정산 입력</button></div>
     <div class="card" id="monthOverviewCard">
-      <h3>월별 전체 병원 현황</h3>
-      <div class="grid g2" style="margin-bottom:12px;">
-        <div><div class="small">월 선택</div><select id="monthFilter"></select></div>
-        <div></div>
+      <div class="grid" style="grid-template-columns:minmax(0,180px) minmax(0,1fr);">
+        <div><label class="lbl" for="monthFilter">정산월</label><select id="monthFilter"></select></div>
+        <div><label class="lbl" for="monthSearch">병원 검색</label><label class="search" for="monthSearch"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"/></svg><input id="monthSearch" type="search" placeholder="병원 이름" autocomplete="off"></label></div>
       </div>
-      <div class="actions" style="margin-bottom:12px;">
-        <button id="downloadMonthCsv" class="sec">선택 월 전체 CSV</button>
+      <div class="actions" style="margin-top:12px;">
         <button id="downloadMonthPdf" class="sec">선택 월 전체 PDF</button>
+        <button id="downloadMonthCsv" class="sec">선택 월 전체 CSV</button>
       </div>
-      <div id="monthOverview"></div>
     </div>
+    <div id="monthOverview"></div>
   </div>
 
   <!-- ===== 탭3: CSO 정산 ===== -->
   <div id="tab-cso" class="tab-content">
     <div class="card">
-      <h3>CSO 정산서</h3>
-      <div class="grid g2" style="margin-bottom:12px;">
-        <div><div class="small">정산 월 선택</div><select id="csoMonthFilter"></select></div>
+      <div class="grid g2">
+        <div><label class="lbl" for="csoMonthFilter">정산월</label><select id="csoMonthFilter"></select></div>
         <div style="display:flex;align-items:flex-end;"><button id="printCso" class="sec">선택 거래처 인쇄/PDF</button></div>
       </div>
-      <div id="csoSelectionBar" class="cso-selection-bar">
+      <div id="csoSelectionBar" class="cso-selection-bar" style="margin:12px 0 0;">
         <label class="cso-select-label" for="csoSelectAll">
           <input type="checkbox" id="csoSelectAll">
           <span>전체 선택</span>
         </label>
         <div id="csoSelectedCount" class="small">선택 0개</div>
       </div>
-      <div id="csoOverview"></div>
     </div>
-    <div class="card">
+    <div id="csoOverview"></div>
+    <div class="totbar cso-bar" id="csoBar" hidden>
+      <div class="cb-sum"><span id="csoBarLabel">선택 0곳 정산금액</span><b id="csoBarFee">0원</b></div>
+      <button type="button" id="csoBarPrint">정산서 만들기</button>
+    </div>
+    <div class="card" style="margin-top:14px;">
       <h3>거래처 관리</h3>
       <div class="small" style="margin-bottom:12px;">거래처별 수수료율을 등록합니다. 병원 등록 시 거래처를 연결하면 CSO 정산서에 자동 반영됩니다.</div>
       <div class="grid g3" style="margin-bottom:10px;">
@@ -759,6 +875,7 @@ const escapeHtml = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','
 // onclick="fn(${jsArg(x)})" 처럼 HTML 속성 안의 함수 인자로 안전하게 넣기 (따옴표·태그가 든 이름도 안전)
 const jsArg = v => escapeHtml(JSON.stringify(String(v ?? '')));
 // 수수료율 표시: 42.5% 같은 소수 요율이 43%로 반올림되어 보이지 않도록 소수 1자리까지
+const XICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-12M9 7V4h6v3"/></svg>';
 const fmtRate = r => new Intl.NumberFormat('ko-KR', {maximumFractionDigits:1}).format(Math.round(Number(r||0) * 10) / 10);
 
 async function requireCurrentUser() {
@@ -1188,7 +1305,7 @@ window.removeItem = removeItem; window.setQuantity = setQuantity; window.setExtr
 function render() {
   const m = currentMonth();
   if (!st.items.length) {
-    $('items').innerHTML = '<div class="small">아직 추가된 품목이 없습니다.</div>';
+    $('items').innerHTML = '<div class="empty">아직 추가된 품목이 없습니다. 위 [품목 추가]에서 제품을 넣어주세요.</div>';
   } else {
     $('items').innerHTML = st.items.map(item => {
       const c = calc(item, m);
@@ -1196,7 +1313,7 @@ function render() {
       const isCov = item.type === 'covered' && !isFixed;
       const isNonA = !isFixed && item.type === 'noncovered' && item.method === 'A';
       const isNonB = !isFixed && item.type === 'noncovered' && item.method === 'B';
-      const badge = isFixed ? (item.source === 'excel' ? '[엑셀] ' : '[엑셀 요율] ') : (isNonB ? '[비급여·방식B] ' : (isNonA ? '[비급여·방식A] ' : ''));
+      const tag = isFixed ? `<span class="tag-x">${item.source === 'excel' ? '엑셀' : '엑셀 요율'}</span>` : (isNonB ? '<span class="tag-x n">비급여·방식B</span>' : (isNonA ? '<span class="tag-x n">비급여·방식A</span>' : ''));
       let rateBreakdown;
       if (isFixed) rateBreakdown = `수수료 ${c.rate.toFixed(1)}% (엑셀 요율)`;
       else if (isNonB) rateBreakdown = `수수료 없음 (출하가 ${fmt(item.shippingPrice||0)}원)`;
@@ -1205,29 +1322,36 @@ function render() {
       if (hasSupplyPrice(item)) rateBreakdown += ` · 납품가 ${fmt(item.supplyPrice)}원 (차액 ${fmt(Number(item.supplyPrice) - Number(item.unitPrice || 0))}원/개)`;
       // extraRate·fixedRate는 소수(0.01 = 1%)로 저장, 입력칸은 %로 표시
       const pct = v => +(Number(v||0) * 100).toFixed(4);
-      const extraInput = isCov ? `<div><div class="small" style="margin-bottom:6px;">추가 수수료(%)</div><input type="number" step="0.5" value="${pct(item.extraRate)}" onchange="setExtraRate('${item._k}',this.value)" style="text-align:center;"/></div>` : '';
-      const fixedInput = isFixed ? `<div><div class="small" style="margin-bottom:6px;">수수료율(%) · 엑셀 기준</div><input type="number" step="any" min="0" value="${pct(item.fixedRate)}" onchange="setFixedRate('${item._k}',this.value)" style="text-align:center;"/></div>` : '';
-      const spInput = (isCov || isFixed) ? `<div><div class="small" style="margin-bottom:6px;">납품가(원) · 비우면 없음</div><input type="number" min="0" step="any" value="${hasSupplyPrice(item) ? Number(item.supplyPrice) : ''}" placeholder="없음" onchange="setSupplyPrice('${item._k}',this.value)" style="text-align:center;"/></div>` : '';
-      const settleInput = isNonA ? `<div><div class="small" style="margin-bottom:6px;">1개당 정산금액(원)</div><input type="number" min="0" value="${item.settlementPerUnit||0}" onchange="setSettlementPerUnit('${item._k}',this.value)" style="text-align:center;"/></div>` : '';
-      return `<div class="item">
-        <div style="font-weight:800;font-size:16px">${badge}${escapeHtml(item.name)}</div>
-        <div class="small">${escapeHtml(item.indication||'')} · 수량 ${fmtQty(item.quantity)} · 단가 ${fmt(item.unitPrice)}원 · ${rateBreakdown}</div>
-        <div style="margin:10px 0 6px;"><div class="grid g2"><div><div class="small" style="margin-bottom:6px;">수량 수정</div><input type="number" min="0" step="any" value="${item.quantity}" onchange="setQuantity('${item._k}',this.value)" style="text-align:center;"/></div>${extraInput}${fixedInput}${spInput}${settleInput}</div></div>
-        <div class="metric"><span>판매금액</span><b>${money(c.sales)}</b></div>
-        <div class="metric"><span>수수료(부가세 포함)</span><b>${money(c.fee)}</b></div>
-        <div class="metric"><span>공급가액</span><b>${money(c.supply)}</b></div>
-        <div class="metric"><span>부가세</span><b>${money(c.vat)}</b></div>
-        <div class="actions" style="margin-top:10px;"><button class="del" onclick="removeItem('${item._k}')">삭제</button></div>
+      const k = item._k;
+      const qtyInput = `<div><div class="small">수량</div><input type="number" min="0" step="any" inputmode="decimal" value="${item.quantity}" onchange="setQuantity('${k}',this.value)" aria-label="${escapeHtml(item.name)} 수량"/></div>`;
+      const extraInput = isCov ? `<div><div class="small">추가 수수료(%)</div><input type="number" step="0.5" inputmode="decimal" value="${pct(item.extraRate)}" onchange="setExtraRate('${k}',this.value)"/></div>` : '';
+      const fixedInput = isFixed ? `<div><div class="small">수수료율(%) · 엑셀</div><input type="number" step="any" min="0" inputmode="decimal" value="${pct(item.fixedRate)}" onchange="setFixedRate('${k}',this.value)"/></div>` : '';
+      const spInput = (isCov || isFixed) ? `<div><div class="small">납품가(원)</div><input type="number" min="0" step="any" inputmode="decimal" value="${hasSupplyPrice(item) ? Number(item.supplyPrice) : ''}" placeholder="없음" onchange="setSupplyPrice('${k}',this.value)"/></div>` : '';
+      const settleInput = isNonA ? `<div><div class="small">1개당 정산(원)</div><input type="number" min="0" inputmode="decimal" value="${item.settlementPerUnit||0}" onchange="setSettlementPerUnit('${k}',this.value)"/></div>` : '';
+      return `<div class="it">
+        <div class="it-top">
+          <div class="nm"><strong>${tag}${escapeHtml(item.name)}</strong><span class="small">${item.indication ? escapeHtml(item.indication) + ' · ' : ''}단가 ${fmt(item.unitPrice)}원 · ${rateBreakdown}</span></div>
+          <div class="fee"><strong>${money(c.fee)}</strong><span>수수료</span></div>
+          <button type="button" class="it-x" onclick="removeItem('${k}')" aria-label="${escapeHtml(item.name)} 삭제">${XICON}</button>
+        </div>
+        <div class="it-in">${qtyInput}${extraInput}${fixedInput}${spInput}${settleInput}</div>
+        <div class="it-sum">
+          <div><span>판매금액</span><b>${money(c.sales)}</b></div>
+          <div><span>수수료(부가세 포함)</span><b>${money(c.fee)}</b></div>
+          <div><span>공급가액</span><b>${money(c.supply)}</b></div>
+          <div><span>부가세</span><b>${money(c.vat)}</b></div>
+        </div>
       </div>`;
     }).join('');
   }
+  if ($('itemCount')) $('itemCount').textContent = st.items.length ? `${st.items.length}개 품목` : '';
 
   const t = currentTotals();
   $('ts').textContent = money(t.sales); $('tf').textContent = money(t.fee);
   $('tp').textContent = money(t.supply); $('tv').textContent = money(t.vat);
   $('dr').textContent = t.sales ? ((t.fee/t.sales)*100).toFixed(2)+'%' : '0%';
   $('rr').textContent = t.sales ? ((t.supply/t.sales)*100).toFixed(2)+'%' : '0%';
-  $('summaryBox').innerHTML = `<div class="item">
+  if ($('summaryBox')) $('summaryBox').innerHTML = `<div class="item">
     <div style="font-weight:800;font-size:16px">신풍제약 합계</div>
     <div class="metric"><span>총 판매금액</span><b>${money(t.sales)}</b></div>
     <div class="metric"><span>총 수수료(부가세 포함)</span><b>${money(t.fee)}</b></div>
@@ -1261,62 +1385,97 @@ function renderMonthFilter() {
 
 function renderSaved() {
   const list = st.savedMonthFilter === 'ALL' ? st.saved : st.saved.filter(x => x.month === st.savedMonthFilter);
-  if (!list.length) { $('saved').innerHTML = '<div class="small">저장된 정산이 없습니다.</div>'; return; }
-  $('saved').innerHTML = list.map(item => `
-    <div class="item">
-      <div style="font-weight:800">${escapeHtml(item.title)}</div>
-      <div class="small">${(item.items_json||[]).length}개 품목 · ${(item.saved_at||'').slice(0,16).replace('T',' ')}</div>
+  if (!list.length) { $('saved').innerHTML = '<div class="empty">저장된 정산이 없습니다.</div>'; return; }
+  $('saved').innerHTML = list.map(item => {
+    let fee = 0; (item.items_json || []).forEach(it => { fee += calc(it, item.month).fee; });
+    return `
+    <div class="it">
+      <div class="it-top">
+        <div class="nm"><strong>${escapeHtml(item.title)}</strong><span class="small">${(item.items_json||[]).length}개 품목 · 저장 ${escapeHtml((item.saved_at||'').slice(0,16).replace('T',' '))}</span></div>
+        <div class="fee"><strong>${money(fee)}</strong><span>수수료</span></div>
+      </div>
       <div class="actions" style="margin-top:10px;">
         <button onclick="loadSettlement(${jsArg(item.key)})">불러오기</button>
         <button class="sec" onclick="duplicateSettlement(${jsArg(item.key)})">복사</button>
         <button class="alt" onclick="copyToNextMonth(${jsArg(item.key)})">다음달 복사</button>
         <button class="del" onclick="deleteSettlement(${jsArg(item.key)})">삭제</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
 function renderMonthOverview() {
   const rows = st.monthFilter === 'ALL' ? st.saved : st.saved.filter(x => x.month === st.monthFilter);
-  if (!rows.length) { $('monthOverview').innerHTML = '<div class="small">선택한 월에 저장된 병원이 없습니다.</div>'; return; }
+  if (!rows.length) { $('monthOverview').innerHTML = '<div class="card"><div class="empty">선택한 월에 저장된 병원이 없습니다.</div></div>'; return; }
+  if (!st.monthOpen) st.monthOpen = new Set();
   let gs=0, gf=0, gp=0, gv=0;
-  const blocks = rows.map(row => {
+  const calcRows = rows.map(row => {
     let s=0,f=0,p=0,v=0;
     const items = row.items_json || [];
     const detailRows = items.map(item => {
       const c = calc(item, row.month);
       s+=c.sales; f+=c.fee; p+=c.supply; v+=c.vat;
-      return `<tr><td>${escapeHtml(item.name)}</td><td>${fmtQty(item.quantity)}</td><td>${fmt(item.unitPrice)}원</td><td>${fmtRate(c.rate)}%</td><td>${money(c.sales)}</td><td>${money(c.fee)}</td><td>${money(c.supply)}</td><td>${money(c.vat)}</td></tr>`;
+      return `<tr><td>${escapeHtml(item.name)}</td><td>${fmtQty(item.quantity)}</td><td>${fmt(item.unitPrice)}원</td><td>${fmtRate(c.rate)}%</td><td>${money(c.sales)}</td><td class="fee">${money(c.fee)}</td><td>${money(c.supply)}</td><td>${money(c.vat)}</td></tr>`;
     }).join('');
     gs+=s; gf+=f; gp+=p; gv+=v;
-    return `<div class="item" style="margin-bottom:14px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <div><div style="font-size:18px;font-weight:800;">${escapeHtml(row.hospital)}</div><div class="small">정산월 ${escapeHtml(row.month)} · ${items.length}개 품목</div></div>
-        <button onclick="loadSettlement(${jsArg(row.key)})" style="width:auto;padding:8px 16px;">열기</button>
-      </div>
-      <div class="grid g2" style="margin-top:10px;">
-        <div class="summary">
-          <div class="metric"><span>판매금액</span><b>${money(s)}</b></div>
-          <div class="metric"><span>수수료</span><b>${money(f)}</b></div>
-          <div class="metric"><span>공급가액</span><b>${money(p)}</b></div>
-          <div class="metric"><span>부가세</span><b>${money(v)}</b></div>
+    const qty = items.reduce((n, it) => n + Number(it.quantity || 0), 0);
+    return { row, items, detailRows, s, f, p, v, qty };
+  });
+  const q = (($('monthSearch') && $('monthSearch').value) || '').trim();
+  const shown = calcRows.filter(x => !q || String(x.row.hospital).includes(q)).sort((a, b) => b.f - a.f);
+  const allOpen = shown.length > 0 && shown.every(x => st.monthOpen.has(x.row.key));
+  const list = shown.map(x => {
+    const row = x.row;
+    const dist = (st.hospitalInfo.find(h => h.name === row.hospital) || {}).distributor_name;
+    const open = st.monthOpen.has(row.key);
+    return `<div class="hrow${open ? ' open' : ''}" data-key="${encodeURIComponent(row.key)}">
+      <button type="button" class="hhead" aria-expanded="${open}" onclick="toggleMonthRow(${jsArg(row.key)})">
+        <span class="nm"><strong>${escapeHtml(row.hospital)}</strong>
+          <span class="tags"><span class="tag">${escapeHtml(row.month)}</span><span class="tag">${x.items.length}품목</span>${dist ? `<span class="tag b">${escapeHtml(dist)}</span>` : '<span class="tag o">거래처 미연결</span>'}</span></span>
+        <span class="amt"><strong>${money(x.f)}</strong><span>판매 ${money(x.s)}</span></span>
+        <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>
+      </button>
+      <div class="hdetail">
+        <div class="mini4">
+          <div><div class="l">판매금액</div><div class="n">${money(x.s)}</div></div>
+          <div class="hl"><div class="l">수수료</div><div class="n">${money(x.f)}</div></div>
+          <div><div class="l">공급가액</div><div class="n">${money(x.p)}</div></div>
+          <div><div class="l">부가세</div><div class="n">${money(x.v)}</div></div>
         </div>
-      </div>
-      <div class="table-wrap" style="margin-top:10px;">
-        <table><thead><tr><th>제품명</th><th>수량</th><th>단가</th><th>수수료율</th><th>판매금액</th><th>수수료</th><th>공급가액</th><th>부가세</th></tr></thead>
-        <tbody>${detailRows||'<tr><td colspan="8">품목 없음</td></tr>'}</tbody></table>
+        <div class="xwrap"><table class="xtable">
+          <thead><tr><th>제품명</th><th>수량</th><th>단가</th><th>수수료율</th><th>판매금액</th><th>수수료</th><th>공급가액</th><th>부가세</th></tr></thead>
+          <tbody>${x.detailRows || '<tr><td colspan="8">품목 없음</td></tr>'}</tbody>
+          <tfoot><tr><td>합계</td><td>${fmtQty(x.qty)}</td><td></td><td></td><td>${money(x.s)}</td><td class="fee">${money(x.f)}</td><td>${money(x.p)}</td><td>${money(x.v)}</td></tr></tfoot>
+        </table></div>
+        <div class="swipe-hint">표는 옆으로 밀어서 볼 수 있습니다</div>
+        <div class="actions" style="margin-top:10px;"><button type="button" onclick="loadSettlement(${jsArg(row.key)})">정산 입력에서 열기 · 수정</button></div>
       </div>
     </div>`;
   }).join('');
   $('monthOverview').innerHTML = `
-    <div class="summary" style="margin-bottom:12px;">
-      <div class="small">선택 월 전체 요약</div>
-      <div class="metric"><span>병원 수</span><b>${rows.length}처</b></div>
-      <div class="metric"><span>총 판매금액</span><b>${money(gs)}</b></div>
-      <div class="metric"><span>총 수수료</span><b>${money(gf)}</b></div>
-      <div class="metric"><span>총 공급가액</span><b>${money(gp)}</b></div>
-      <div class="metric"><span>총 부가세</span><b>${money(gv)}</b></div>
-    </div>${blocks}`;
+    <div class="kpis">
+      <div class="kpi"><div class="l">병원 수</div><div class="n">${rows.length}처</div></div>
+      <div class="kpi"><div class="l">총 판매금액</div><div class="n">${money(gs)}</div></div>
+      <div class="kpi hl"><div class="l">총 수수료</div><div class="n">${money(gf)}</div></div>
+      <div class="kpi"><div class="l">총 공급가액</div><div class="n">${money(gp)}</div></div>
+      <div class="kpi"><div class="l">총 부가세</div><div class="n">${money(gv)}</div></div>
+    </div>
+    <div class="list-tools"><span class="small">${q ? `'${escapeHtml(q)}' 검색 결과 ${shown.length}처` : `병원 ${shown.length}처 · 수수료 큰 순`}</span>
+      ${shown.length ? `<button type="button" class="sec" onclick="toggleAllMonthRows(${!allOpen})">${allOpen ? '모두 접기' : '모두 펼치기'}</button>` : ''}</div>
+    <div class="hlist">${list || '<div class="empty">검색한 병원이 없습니다.</div>'}</div>`;
 }
+function toggleMonthRow(key) {
+  if (!st.monthOpen) st.monthOpen = new Set();
+  if (st.monthOpen.has(key)) st.monthOpen.delete(key); else st.monthOpen.add(key);
+  const el = document.querySelector(`.hrow[data-key="${encodeURIComponent(key)}"]`);
+  if (el) { el.classList.toggle('open', st.monthOpen.has(key)); el.querySelector('.hhead').setAttribute('aria-expanded', st.monthOpen.has(key)); }
+}
+function toggleAllMonthRows(open) {
+  if (!st.monthOpen) st.monthOpen = new Set();
+  document.querySelectorAll('#monthOverview .hrow').forEach(el => { const k = decodeURIComponent(el.dataset.key); if (open) st.monthOpen.add(k); else st.monthOpen.delete(k); });
+  renderMonthOverview();
+}
+window.toggleMonthRow = toggleMonthRow; window.toggleAllMonthRows = toggleAllMonthRows;
 
 // =============================================
 // Supabase CRUD
@@ -1753,7 +1912,27 @@ function renderCsoSelectionBar() {
   printButton.textContent = selected.length > 0
     ? `선택 ${selected.length}개 거래처 인쇄/PDF`
     : '선택 거래처 인쇄/PDF';
+  document.querySelectorAll('#csoOverview .dcard').forEach(c => c.classList.toggle('sel', selected.includes(decodeURIComponent(c.dataset.dist))));
+  const sumBar = $('csoBar');
+  if (sumBar) {
+    sumBar.hidden = !available.length;
+    const sum = selected.reduce((n, name) => n + ((st.csoDistFee || {})[name] || 0), 0);
+    $('csoBarLabel').textContent = `선택 ${selected.length}곳 정산금액`;
+    $('csoBarFee').textContent = money(sum);
+    $('csoBarPrint').disabled = selected.length === 0;
+  }
 }
+function toggleCsoCard(name) {
+  if (!st.csoOpen) st.csoOpen = new Set();
+  if (st.csoOpen.has(name)) st.csoOpen.delete(name); else st.csoOpen.add(name);
+  const el = document.querySelector(`#csoOverview .dcard[data-dist="${encodeURIComponent(name)}"]`);
+  if (el) {
+    const open = st.csoOpen.has(name);
+    el.classList.toggle('open', open);
+    const b = el.querySelector('.more-btn'); b.textContent = open ? '병원별 내역 접기' : '병원별 내역 보기'; b.setAttribute('aria-expanded', open);
+  }
+}
+window.toggleCsoCard = toggleCsoCard;
 
 function setAllCsoDistributorSelection(checked) {
   st.csoSelectedDistributors = checked ? [...st.csoAvailableDistributors] : [];
@@ -1775,83 +1954,72 @@ function renderCsoOverview() {
   const { rows, grouped } = getCsoGroupedRows(month);
   if (!rows.length) {
     clearCsoSelectionUi(month);
-    $('csoOverview').innerHTML = '<div class="small">저장된 정산이 없습니다.</div>';
+    $('csoOverview').innerHTML = '<div class="card"><div class="empty">저장된 정산이 없습니다.</div></div>';
     return;
   }
 
   if (!Object.keys(grouped).length) {
     clearCsoSelectionUi(month);
-    $('csoOverview').innerHTML = '<div class="small">거래처가 연결된 병원이 없습니다. 아래 "병원-거래처 연결"에서 설정해주세요.</div>';
+    $('csoOverview').innerHTML = '<div class="card"><div class="empty">거래처가 연결된 병원이 없습니다. 아래 "병원-거래처 연결"에서 설정해주세요.</div></div>';
     return;
   }
 
   syncCsoSelection(month, Object.keys(grouped));
   renderCsoSelectionBar();
 
+  if (!st.csoOpen) st.csoOpen = new Set();
+  st.csoDistFee = {};
   let html = '';
   Object.entries(grouped).forEach(([distName, dRows]) => {
     const dist = st.distributors.find(d => d.name === distName);
     const rate = dist ? dist.rate : 0;
     const distId = dist ? dist.id : '';
     const isSelected = st.csoSelectedDistributors.includes(distName);
-    let totalSales = 0, totalFee = 0;
+    const isOpen = st.csoOpen.has(distName);
+    let totalSales = 0, totalFee = 0, totalDiff = 0;
     const hospBlocks = dRows.map(row => {
       let rowSales = 0;
       const itemRows = (row.items_json||[]).map(item => {
         const c = calc(item, row.month);
         rowSales += c.sales;
+        totalDiff += supplyMargin(item);
         return `<tr><td>${escapeHtml(item.name)}</td><td>${fmtQty(item.quantity)}</td><td>${money(c.sales)}</td></tr>`;
       }).join('');
       const rowFee = Math.round(rowSales * rate);
       totalSales += rowSales; totalFee += rowFee;
       return `
-        <tr style="background:#F4F8FF;">
-          <td colspan="3" style="font-weight:700;padding:8px;">
-            ${escapeHtml(row.hospital)} <span class="small">${escapeHtml(row.month)}</span>
-            <button onclick="editCsoHospitalItems(${jsArg(row.key)})" class="sec" style="width:auto;padding:3px 10px;font-size:11px;margin-left:8px;">품목 수정</button>
-          </td>
-        </tr>
+        <tr class="grp"><td colspan="3">
+          ${escapeHtml(row.hospital)} <span class="small">${escapeHtml(row.month)}</span>
+          <button onclick="editCsoHospitalItems(${jsArg(row.key)})" class="sec" style="width:auto;padding:4px 10px;font-size:12px;margin-left:8px;">품목 수정</button>
+        </td></tr>
         ${itemRows}
-        <tr style="border-top:1px solid #EEF0F4;">
-          <td colspan="2" style="text-align:right;color:#6B7684;padding:6px 8px;">소계</td>
-          <td style="font-weight:700;">${money(rowSales)}</td>
-        </tr>`;
+        <tr><td style="color:#6B7684;font-weight:600;">소계 · 정산 ${money(rowFee)}</td><td></td><td style="font-weight:700;">${money(rowSales)}</td></tr>`;
     }).join('');
+    st.csoDistFee[distName] = totalFee;
 
-    html += `<div class="item" style="margin-bottom:16px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px;">
-        <div class="cso-dist-title">
-          <input type="checkbox" class="cso-dist-checkbox" data-cso-dist="${encodeURIComponent(distName)}" ${isSelected ? 'checked' : ''}>
-          <div>
-            <div style="font-size:17px;font-weight:800;">${escapeHtml(distName)}</div>
-            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;">
-              <span class="small">수수료율</span>
-              <input type="number" value="${(rate*100).toFixed(1)}" min="0" max="100" step="0.1"
-                style="width:74px;text-align:center;padding:5px 8px;font-size:14px;font-weight:700;border-radius:8px;"
-                onchange="updateDistRateInline(${jsArg(distName)},${distId === '' ? "''" : Number(distId)},this.value)">
-              <span class="small">%</span>
-            </div>
-          </div>
-        </div>
-        <div style="text-align:right;">
-          <div class="small">판매합계</div>
-          <div style="font-weight:700;">${money(totalSales)}</div>
-          <div class="small" style="color:#1E5EF3;">수수료 ${money(totalFee)}</div>
-        </div>
+    html += `<div class="dcard${isSelected ? ' sel' : ''}${isOpen ? ' open' : ''}" data-dist="${encodeURIComponent(distName)}">
+      <div class="dcard-h">
+        <input type="checkbox" class="cso-dist-checkbox" data-cso-dist="${encodeURIComponent(distName)}" ${isSelected ? 'checked' : ''} aria-label="${escapeHtml(distName)} 정산서에 포함">
+        <span class="nm">${escapeHtml(distName)}</span>
+        <label class="rate-in">수수료율
+          <input type="number" value="${(rate*100).toFixed(1)}" min="0" max="100" step="0.1" inputmode="decimal"
+            onchange="updateDistRateInline(${jsArg(distName)},${distId === '' ? "''" : Number(distId)},this.value)">%
+        </label>
       </div>
-      <div class="table-wrap">
-        <table>
+      <div class="mini4">
+        <div><div class="l">판매금액</div><div class="n">${money(totalSales)}</div></div>
+        <div class="hl"><div class="l">정산금액</div><div class="n">${money(totalFee)}</div></div>
+        <div><div class="l">납품 차액</div><div class="n">${money(totalDiff)}</div></div>
+        <div><div class="l">병원</div><div class="n">${dRows.length}처</div></div>
+      </div>
+      <button type="button" class="more-btn" aria-expanded="${isOpen}" onclick="toggleCsoCard(${jsArg(distName)})">${isOpen ? '병원별 내역 접기' : '병원별 내역 보기'}</button>
+      <div class="ddetail">
+        <div class="xwrap"><table class="xtable">
           <thead><tr><th>제품명</th><th>수량</th><th>판매금액</th></tr></thead>
           <tbody>${hospBlocks}</tbody>
-          <tfoot><tr style="font-weight:800;background:#EAF1FF;">
-            <td colspan="2" style="text-align:right;padding:8px;">합계</td>
-            <td>${money(totalSales)}</td>
-          </tr>
-          <tr style="color:#1E5EF3;font-weight:800;">
-            <td colspan="2" style="text-align:right;padding:8px;">수수료</td>
-            <td>${money(totalFee)}</td>
-          </tr></tfoot>
-        </table>
+          <tfoot><tr><td>합계</td><td></td><td>${money(totalSales)}</td></tr>
+          <tr><td>수수료 (${(rate*100).toFixed(1)}%)</td><td></td><td class="fee">${money(totalFee)}</td></tr></tfoot>
+        </table></div>
       </div>
     </div>`;
   });
@@ -1861,6 +2029,7 @@ function renderCsoOverview() {
       toggleCsoDistributorSelection(decodeURIComponent(box.dataset.csoDist), box.checked);
     });
   });
+  renderCsoSelectionBar();
 }
 
 function printCsoSettlement() {
@@ -3343,6 +3512,9 @@ $('addDist').addEventListener('click', addDistFn);
 $('csoMonthFilter').addEventListener('change', e => { st.csoMonthFilter = e.target.value; renderCsoOverview(); });
 $('csoSelectAll').addEventListener('change', e => setAllCsoDistributorSelection(e.target.checked));
 $('printCso').addEventListener('click', printCsoSettlement);
+$('csoBarPrint').addEventListener('click', printCsoSettlement);
+$('totMore').addEventListener('click', e => { const bar = e.currentTarget.closest('.totbar'); const x = bar.classList.toggle('x'); e.currentTarget.textContent = x ? '접기' : '자세히'; e.currentTarget.setAttribute('aria-expanded', x); });
+$('monthSearch').addEventListener('input', () => renderMonthOverview());
 $('addMonth').addEventListener('click', addMonthFn);
 $('hospitalSelect').addEventListener('change', e => { $('hospitalInput').value = e.target.value; updateHeader(); loadProducts(); });
 $('monthSelect').addEventListener('change', e => { $('monthInput').value = e.target.value; updateHeader(); loadProducts(); render(); });
