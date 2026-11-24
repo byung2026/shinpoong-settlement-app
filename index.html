@@ -252,6 +252,39 @@ button.warn{background:var(--org-bg);color:var(--org)}
   .xtable th,.xtable td{padding:9px 10px;font-size:13px}
   #monthOverviewCard .grid{grid-template-columns:minmax(0,1fr)!important}
 }
+/* 3단계: 업로드 단계 · 제품 관리 */
+.steps{list-style:none;margin:0 0 14px;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;position:relative}
+.steps li{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;position:relative}
+.steps li:not(:last-child):after{content:"";position:absolute;top:17px;left:calc(50% + 22px);right:calc(-50% + 22px);height:2px;background:#E1E5EB}
+.steps li.done:not(:last-child):after{background:#BFD3FF}
+.steps .n{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:14px;font-weight:800;background:#E9ECF1;color:var(--mute)}
+.steps .t{font-size:13px;font-weight:700;color:var(--mute)}
+.steps li.done .n{background:var(--blue-bg);color:var(--blue);font-size:0}
+.steps li.done .n:before{content:"✓";font-size:15px}
+.steps li.on .n{background:var(--blue);color:#fff}.steps li.on .t{color:var(--ink)}
+.steps li.on.warn .n{background:var(--org);color:#fff}.steps li.on.warn .t{color:var(--org)}
+.up-bar{flex-wrap:wrap}
+.up-bar>button{width:auto}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chips button{width:auto;min-height:40px;padding:0 16px;border-radius:20px;background:var(--chip);color:var(--sub);font-size:14px}
+.chips button.on{background:var(--ink);color:#fff}
+.prow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 14px;padding:14px 0;border-bottom:1px solid var(--line)}
+.prow:last-child{border-bottom:0}
+.pmain{display:flex;flex-direction:column;gap:2px;min-width:0}
+.pmain strong{font-size:15.5px}
+.prate{text-align:right;white-space:nowrap}
+.prate b{display:block;font-size:20px;color:var(--blue);font-variant-numeric:tabular-nums}
+.prate.n b{font-size:16px;color:var(--ink)}
+.prate span{font-size:12px;color:var(--mute)}
+.phist{grid-column:1/-1}
+.phist summary{cursor:pointer;color:var(--blue);font-size:13.5px;font-weight:700;min-height:32px;display:flex;align-items:center}
+.phist ol{list-style:none;margin:4px 0 0;padding:0}
+.phist li{display:flex;gap:10px;align-items:flex-start;padding:7px 0;font-size:13.5px;border-bottom:1px dashed var(--line)}
+.phist li:last-child{border-bottom:0}
+.phist .dot{width:9px;height:9px;border-radius:50%;background:#C2C8D0;margin-top:6px;flex:0 0 auto}.phist .dot.cur{background:var(--blue)}
+.pact{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
+.pact button{width:auto;padding:8px 14px;font-size:13.5px}
+@media(max-width:820px){.up-bar .cb-sum{flex-basis:100%}.up-bar>button{flex:1}.steps .t{font-size:12px}}
 /* 로그인 화면 */
 #loginScreen{position:fixed;inset:0;background:var(--bg);z-index:999;display:flex;align-items:center;justify-content:center;}
 .login-box{background:#fff;border:1px solid var(--line);border-radius:22px;padding:36px 28px;width:90%;max-width:380px;box-shadow:0 10px 30px rgba(16,24,40,.06)}
@@ -514,6 +547,12 @@ table select{padding:8px 34px 8px 10px;font-size:14px;min-width:180px}
 
   <!-- ===== 탭: 엑셀 업로드 ===== -->
   <div id="tab-upload" class="tab-content">
+    <ol class="steps" id="upSteps" aria-label="업로드 단계">
+      <li data-s="1" class="on" aria-current="step"><span class="n">1</span><span class="t">업로드</span></li>
+      <li data-s="2"><span class="n">2</span><span class="t">검증</span></li>
+      <li data-s="3"><span class="n">3</span><span class="t">미리보기</span></li>
+      <li data-s="4"><span class="n">4</span><span class="t">저장</span></li>
+    </ol>
     <div class="card">
       <h3>정산 엑셀 업로드</h3>
       <div class="small" style="margin-bottom:12px;">거래처에서 받은 정산 엑셀(.xlsx)을 올리면 병원·처방월별 정산서로 자동 변환합니다. 단가와 수수료율은 엑셀 값을 그대로 쓰고, 저장 전에 미리보기로 확인할 수 있습니다.</div>
@@ -583,6 +622,31 @@ table select{padding:8px 34px 8px 10px;font-size:14px;min-width:180px}
   <!-- ===== 탭4: 제품 관리 ===== -->
   <div id="tab-admin" class="tab-content">
     <div class="card">
+      <label class="search" for="prodSearch"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"/></svg><input id="prodSearch" type="search" placeholder="제품명 · 보험코드 검색" autocomplete="off"></label>
+      <div class="chips" id="prodChips" role="group" aria-label="제품 구분" style="margin-top:10px;">
+        <button type="button" data-f="all" class="on">전체</button>
+        <button type="button" data-f="covered">급여</button>
+        <button type="button" data-f="noncovered">비급여</button>
+        <button type="button" data-f="supply">병원별 납품가</button>
+      </div>
+    </div>
+    <div class="card" id="admCovCard">
+      <div class="sec-h"><h3>급여 제품</h3><span class="small" id="admCovCount"></span></div>
+      <div class="small" style="margin-bottom:12px;">제품별 적용시작월·종료월·수수료율 이력을 관리합니다. 정산월에 맞는 요율이 자동 적용됩니다.</div>
+      <div class="actions" style="margin-bottom:12px;">
+        <button onclick="showAddProductModal('covered')" class="sec">+ 급여 제품 추가</button>
+        <button onclick="showAddRateModal()" class="sec">+ 수수료율 변경 이력 추가</button>
+      </div>
+      <div id="adminCoveredList"><div class="loading">로딩 중...</div></div>
+    </div>
+    <div class="card" id="admNonCard">
+      <div class="sec-h"><h3>비급여 제품</h3><span class="small" id="admNonCount"></span></div>
+      <div class="actions" style="margin-bottom:12px;">
+        <button onclick="showAddProductModal('noncovered')" class="sec">+ 비급여 제품 추가</button>
+      </div>
+      <div id="adminNoncoveredList"><div class="loading">로딩 중...</div></div>
+    </div>
+    <div class="card" id="admSupplyCard">
       <h3>병원별 납품가</h3>
       <div class="small" style="margin-bottom:12px;">병원에 실제로 납품하는 가격을 정해두면, 엑셀 업로드 때 <b>(납품가 − 엑셀 단가) × 수량</b>이 수수료에 더해집니다. 판매금액은 엑셀 단가 그대로입니다. 예) 리브솔주 엑셀 4,500원 · 납품가 6,650원 → 1개당 2,150원</div>
       <div class="grid g2" style="margin-bottom:10px;">
@@ -595,22 +659,6 @@ table select{padding:8px 34px 8px 10px;font-size:14px;min-width:180px}
       <div class="actions" style="margin-bottom:12px;"><button id="spSave" class="sec">납품가 저장</button></div>
       <div id="spMsg" class="small" style="margin-bottom:8px;" aria-live="polite"></div>
       <div id="spList"></div>
-    </div>
-    <div class="card">
-      <h3>급여 제품 관리</h3>
-      <div class="small" style="margin-bottom:12px;">제품별 적용시작월·종료월·수수료율 이력을 관리합니다. 정산월에 맞는 요율이 자동 적용됩니다.</div>
-      <div class="actions" style="margin-bottom:12px;">
-        <button onclick="showAddProductModal('covered')" class="sec">+ 급여 제품 추가</button>
-        <button onclick="showAddRateModal()" class="sec">+ 수수료율 변경 이력 추가</button>
-      </div>
-      <div id="adminCoveredList"><div class="loading">로딩 중...</div></div>
-    </div>
-    <div class="card">
-      <h3>비급여 제품 관리</h3>
-      <div class="actions" style="margin-bottom:12px;">
-        <button onclick="showAddProductModal('noncovered')" class="sec">+ 비급여 제품 추가</button>
-      </div>
-      <div id="adminNoncoveredList"><div class="loading">로딩 중...</div></div>
     </div>
   </div>
 
@@ -1634,54 +1682,61 @@ window.deleteSettlement = deleteSettlement;
 // =============================================
 function renderAdminLists() {
   const m = currentMonth();
+  const q = (st.prodQ || '').trim().toLowerCase();
+  const f = st.prodF || 'all';
+  const hit = p => !q || String(p.name || '').toLowerCase().includes(q) || String(p.code || '').includes(q);
+  $('admCovCard').style.display = (f === 'all' || f === 'covered') ? '' : 'none';
+  $('admNonCard').style.display = (f === 'all' || f === 'noncovered') ? '' : 'none';
+  $('admSupplyCard').style.display = (f === 'all' || f === 'supply') ? '' : 'none';
+  document.querySelectorAll('#prodChips button').forEach(b => b.classList.toggle('on', b.dataset.f === f));
   // 급여
-  const covHtml = st.coveredProducts.map(p => {
-    const rates = st.rateHistory.filter(r => r.product_name === p.name).sort((a,b) => a.effective_from.localeCompare(b.effective_from));
+  const covList = st.coveredProducts.filter(hit);
+  const covHtml = covList.map(p => {
+    const rates = st.rateHistory.filter(r => r.product_name === p.name).sort((a,b) => b.effective_from.localeCompare(a.effective_from));
     const currentRate = getRateForMonth(p.name, m);
     const isExpired = p.active_to && p.active_to < m;
     const isNew = p.active_from && p.active_from > m;
     let badges = '';
     if (isExpired) badges += `<span class="badge badge-end">종료</span>`;
     if (isNew) badges += `<span class="badge badge-new">미시작</span>`;
-    const rateHistory = rates.map(r =>
-      `<span class="small">${r.effective_from}~${r.effective_to||'현재'}: <b>${(Number(r.rate)*100).toFixed(0)}%</b></span>`
-    ).join(' | ');
-    return `<div class="item">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
-        <div>
-          <div style="font-weight:700;">${p.name}${badges}</div>
-          <div class="small">${p.indication||''} · 단가 ${fmt(p.unit_price)}원 · 현재요율 ${((currentRate===0?0:currentRate+0.01)*100).toFixed(0)}%</div>
-          <div class="small" style="margin-top:4px;">적용기간: ${p.active_from||'-'} ~ ${p.active_to||'계속'}</div>
-          <div class="small" style="margin-top:2px;">요율이력: ${rateHistory||'-'}</div>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button onclick="editProductEnd('covered','${p.name}','${p.active_to||''}')" class="sec" style="width:auto;padding:6px 10px;font-size:12px;">종료월 설정</button>
-          <button onclick="showAddRateModalFor('${p.name.replace(/'/g,"\\'")}')" class="sec" style="width:auto;padding:6px 10px;font-size:12px;">요율변경</button>
-        </div>
+    const hist = rates.map((r, i) => `<li><span class="dot${i === 0 ? ' cur' : ''}"></span><span><b>${escapeHtml(r.effective_from)} ~ ${escapeHtml(r.effective_to || '현재')}</b> · 등록 요율 ${(Number(r.rate)*100).toFixed(0)}%</span></li>`).join('');
+    return `<div class="prow">
+      <div class="pmain">
+        <strong>${escapeHtml(p.name)}${badges}</strong>
+        <span class="small">${p.code ? escapeHtml(p.code) + ' · ' : ''}${escapeHtml(p.indication||'')}${p.indication ? ' · ' : ''}단가 ${fmt(p.unit_price)}원</span>
+        <span class="small">적용기간 ${escapeHtml(p.active_from||'-')} ~ ${escapeHtml(p.active_to||'계속')}</span>
+      </div>
+      <div class="prate"><b>${((currentRate===0?0:currentRate+0.01)*100).toFixed(0)}%</b><span>${escapeHtml(m)} 적용 요율</span></div>
+      <details class="phist"><summary>수수료율 변경 이력 ${rates.length}건</summary><ol>${hist || '<li><span>이력 없음</span></li>'}</ol></details>
+      <div class="pact">
+        <button onclick="showAddRateModalFor('${p.name.replace(/'/g,"\\'")}')" class="sec">요율 변경</button>
+        <button onclick="editProductEnd('covered','${p.name}','${p.active_to||''}')" class="sec">종료월 설정</button>
       </div>
     </div>`;
   }).join('');
-  $('adminCoveredList').innerHTML = covHtml || '<div class="small">제품 없음</div>';
+  $('adminCoveredList').innerHTML = covHtml || `<div class="empty">${q ? '검색한 제품이 없습니다.' : '제품 없음'}</div>`;
+  $('admCovCount').textContent = `${covList.length}개`;
 
   // 비급여
-  const nonHtml = st.noncoveredProducts.map(p => {
+  const nonList = st.noncoveredProducts.filter(hit);
+  const nonHtml = nonList.map(p => {
     const isExpired = p.active_to && p.active_to < m;
     const isNew = p.active_from && p.active_from > m;
     let badges = '';
     if (isExpired) badges += `<span class="badge badge-end">종료</span>`;
     if (isNew) badges += `<span class="badge badge-new">미시작</span>`;
-    return `<div class="item">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:8px;">
-        <div>
-          <div style="font-weight:700;">${p.name}${badges}</div>
-          <div class="small">${p.indication||''} · 약가 ${fmt(p.unit_price)}원 · 출하가 ${fmt(p.shipping_price)}원</div>
-          <div class="small" style="margin-top:4px;">적용기간: ${p.active_from||'-'} ~ ${p.active_to||'계속'}</div>
-        </div>
-        <button onclick="editProductEnd('noncovered','${p.name}','${p.active_to||''}')" class="sec" style="width:auto;padding:6px 10px;font-size:12px;">종료월 설정</button>
+    return `<div class="prow">
+      <div class="pmain">
+        <strong>${escapeHtml(p.name)}${badges}</strong>
+        <span class="small">${p.code ? escapeHtml(p.code) + ' · ' : ''}${escapeHtml(p.indication||'')}${p.indication ? ' · ' : ''}약가 ${fmt(p.unit_price)}원 · 출하가 ${fmt(p.shipping_price)}원</span>
+        <span class="small">적용기간 ${escapeHtml(p.active_from||'-')} ~ ${escapeHtml(p.active_to||'계속')}</span>
       </div>
+      <div class="prate n"><b>${fmt(p.shipping_price)}원</b><span>출하가</span></div>
+      <div class="pact"><button onclick="editProductEnd('noncovered','${p.name}','${p.active_to||''}')" class="sec">종료월 설정</button></div>
     </div>`;
   }).join('');
-  $('adminNoncoveredList').innerHTML = nonHtml || '<div class="small">제품 없음</div>';
+  $('adminNoncoveredList').innerHTML = nonHtml || `<div class="empty">${q ? '검색한 제품이 없습니다.' : '제품 없음'}</div>`;
+  $('admNonCount').textContent = `${nonList.length}개`;
 }
 
 // =============================================
@@ -2032,6 +2087,32 @@ function renderCsoOverview() {
   renderCsoSelectionBar();
 }
 
+// ===== PDF 정산서 공통 디자인 (네이비·화이트) =====
+const PDF_CSS = `
+  body{font-family:'Pretendard','Apple SD Gothic Neo','Noto Sans KR','Malgun Gothic',Arial,sans-serif;margin:0;padding:18px;color:#191F28;font-size:12px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .ph{background:#1B2B4B;color:#fff;border-radius:10px;padding:16px 20px;display:flex;justify-content:space-between;align-items:flex-end;gap:12px;margin-bottom:14px}
+  .ph .k{font-size:10px;letter-spacing:.14em;color:#B8C4DA;font-weight:700}
+  .ph h1{margin:3px 0 0;font-size:22px;color:#fff}
+  .ph .r{text-align:right;font-size:12px;color:#D6DEEC;line-height:1.55}
+  .kp{display:grid;grid-template-columns:repeat(4,1fr);border:1px solid #D9E0EC;border-radius:8px;overflow:hidden;margin-bottom:14px}
+  .kp.two{grid-template-columns:repeat(2,1fr)}
+  .kp>div{padding:9px 12px;border-right:1px solid #D9E0EC}.kp>div:last-child{border-right:0}
+  .kp span{display:block;font-size:10.5px;color:#4E5968}.kp b{font-size:15px;color:#191F28}.kp .hl b{color:#1E5EF3}
+  table{width:100%;border-collapse:collapse}
+  th{background:#1B2B4B;color:#fff;font-weight:700;padding:7px 6px;font-size:10.5px;text-align:right;border:0}
+  th:first-child{text-align:left}
+  td{padding:6px;border-bottom:1px solid #E5E8EE;font-size:10.5px;text-align:right;word-break:break-word}
+  td:first-child{text-align:left;font-weight:600}
+  tbody tr:nth-child(even) td{background:#F7F9FC}
+  tfoot td{background:#EAF1FF;font-weight:800;border-bottom:0}
+  td.fee{color:#1E5EF3;font-weight:700}
+  h2{font-size:14px;margin:0 0 8px;color:#1B2B4B}
+  .blk{border:1px solid #D9E0EC;border-radius:8px;padding:12px;margin-bottom:12px;page-break-inside:avoid}
+  .note{text-align:right;color:#6B7684;font-size:10px;margin-top:10px}
+  @media print{body{padding:0}}`;
+function pdfHead(kicker, title, rightHtml) {
+  return `<div class="ph"><div><div class="k">${kicker}</div><h1>${title}</h1></div><div class="r">${rightHtml}</div></div>`;
+}
 function printCsoSettlement() {
   const month = st.csoMonthFilter;
   const { rows, grouped: allGrouped } = getCsoGroupedRows(month);
@@ -2056,7 +2137,7 @@ function printCsoSettlement() {
       }).join('');
       const rowSales = (row.items_json||[]).reduce((s,item) => s + calc(item,row.month).sales, 0);
       const rowFee = Math.round(rowSales * rate);
-      return itemRows + `<tr class="subtotal-row"><td colspan="2" style="text-align:right;">${escapeHtml(row.hospital)} 소계</td><td style="font-weight:700;">${money(rowSales)}</td><td style="color:#1a6fcf;">${money(rowFee)}</td></tr>`;
+      return itemRows + `<tr class="subtotal-row"><td colspan="2" style="text-align:right;">${escapeHtml(row.hospital)} 소계</td><td style="font-weight:700;">${money(rowSales)}</td><td class="fee">${money(rowFee)}</td></tr>`;
     }).join('');
 
     totalFee = Math.round(totalSales * rate);
@@ -2080,7 +2161,7 @@ function printCsoSettlement() {
             <tr class="total-row">
               <td colspan="2" style="text-align:right;">소계</td>
               <td>${money(totalSales)}</td>
-              <td style="color:#1a6fcf;">${money(totalFee)}</td>
+              <td class="fee">${money(totalFee)}</td>
             </tr>
           </tfoot>
         </table>
@@ -2092,36 +2173,26 @@ function printCsoSettlement() {
   showPrintDoc({ title: '정산서', orientation: 'landscape', filename: `정산서_${monthLabel.replace(/\s/g,'')}.pdf`, html: `<!doctype html><html><head><meta charset="utf-8"><title>정산서</title>
     <style>
       @page{size:A4 landscape;margin:12mm}
-      body{font-family:'Apple SD Gothic Neo','Noto Sans KR',Arial,sans-serif;margin:18px;color:#111;font-size:15px;}
-      h1{font-size:26px;margin:0 0 6px;}
-      .top{margin-bottom:18px;}
-      .top button{padding:10px 20px;border:1px solid #bbb;background:#f7f7f7;border-radius:6px;cursor:pointer;font-size:14px;}
-      .summary-box{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;border:1px solid #ddd;padding:16px;border-radius:8px;}
-      .summary-box div{font-size:15px;}
-      .summary-box strong{font-size:22px;color:#1a6fcf;display:block;margin-top:4px;}
-      .dist-header{border-left:5px solid #1a6fcf;padding-left:12px;margin-bottom:10px;}
-      .dist-header strong{font-size:17px;}
-      .dist-header span{font-size:14px;color:#555;margin-left:10px;}
-      table{width:100%;border-collapse:collapse;font-size:15px;}
-      th{border:1px solid #ccc;padding:10px 14px;background:#f0f4f8;text-align:left;font-size:15px;}
+      ${PDF_CSS}
+      body{font-size:13px}
+      .dist-header{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+      .dist-header strong{font-size:16px;color:#1B2B4B}
+      .dist-header span{font-size:12px;font-weight:700;color:#1849C6;background:#EAF1FF;border-radius:6px;padding:2px 8px}
+      th,td{font-size:12.5px;padding:8px 12px}
       th:nth-child(1){width:22%;}
-      th:nth-child(2){width:38%;}
+      th:nth-child(2){width:38%;text-align:left;}
+      td:nth-child(2){text-align:left;font-weight:400;}
       th:nth-child(3),th:nth-child(4){width:20%;}
-      th:nth-child(3), th:nth-child(4){text-align:right;}
-      td{border:1px solid #ddd;padding:10px 14px;font-size:15px;}
-      td:nth-child(3), td:nth-child(4){text-align:right;}
-      .subtotal-row td{background:#f9f9f9;color:#555;font-size:14px;padding:8px 14px;}
-      .total-row td{background:#e8f0fe;font-weight:700;font-size:15px;padding:10px 14px;}
-      @media print{.top{display:none}body{margin:0}}
+      .subtotal-row td{background:#F4F6FA!important;color:#4E5968;font-size:12px;padding:6px 12px;}
+      .total-row td{background:#EAF1FF;font-weight:800;}
     </style></head><body>
-    <div data-pdf><h1>정산서</h1>
-    <p style="color:#555;margin:0 0 18px;font-size:15px;">정산 월: ${monthLabel} · 선택 거래처: ${selectedDistributorCount}곳</p>
-    <div class="summary-box">
-      <div>선택 판매금액 합계<strong>${money(grandSales)}</strong></div>
-      <div>선택 수수료 합계<strong>${money(grandFee)}</strong></div>
+    <div data-pdf>${pdfHead('SHIN POONG · CSO', 'CSO 정산서', `정산월 ${escapeHtml(monthLabel)}<br>선택 거래처 ${selectedDistributorCount}곳`)}
+    <div class="kp two">
+      <div><span>선택 판매금액 합계</span><b>${money(grandSales)}</b></div>
+      <div class="hl"><span>선택 수수료 합계</span><b>${money(grandFee)}</b></div>
     </div></div>
     ${blocks}
-    <p data-pdf style="text-align:right;color:#888;font-size:13px;margin-top:24px;">※ 본 정산서는 거래처별 협의 수수료를 기준으로 작성되었습니다.</p>
+    <p data-pdf class="note">※ 본 정산서는 거래처별 협의 수수료를 기준으로 작성되었습니다.</p>
   </body></html>` });
 }
 
@@ -2472,18 +2543,16 @@ function downloadCsv() {
 }
 function openPdf() {
   const t = currentTotals();
-  const itemRows = st.items.map(item => { const c=calc(item); return `<tr><td>${escapeHtml(item.name)}</td><td>${fmtQty(item.quantity)}</td><td>${fmt(item.unitPrice)}원</td><td>${fmtRate(c.rate)}%</td><td>${money(c.sales)}</td><td>${money(c.fee)}</td><td>${money(c.supply)}</td><td>${money(c.vat)}</td></tr>`; }).join('');
+  const itemRows = st.items.map(item => { const c=calc(item); return `<tr><td>${escapeHtml(item.name)}</td><td>${fmtQty(item.quantity)}</td><td>${fmt(item.unitPrice)}원</td><td>${fmtRate(c.rate)}%</td><td>${money(c.sales)}</td><td class="fee">${money(c.fee)}</td><td>${money(c.supply)}</td><td>${money(c.vat)}</td></tr>`; }).join('');
   showPrintDoc({ title: '정산서', orientation: 'portrait', filename: `${currentHospital()}_${currentMonth()}_정산서.pdf`, html: `<!doctype html><html><head><meta charset="utf-8"><title>정산서</title>
-  <style>@page{size:A4 portrait;margin:10mm}body{font-family:Arial,sans-serif;margin:20px;color:#111}
-  h1{margin:0 0 6px;font-size:22px}.sub{color:#555;font-size:12px;margin-bottom:12px}
-  .top-actions{margin-bottom:14px}.top-actions button{padding:10px;border:1px solid #bbb;background:#f7f7f7;border-radius:8px;cursor:pointer}
-  .sb{border:1px solid #ddd;border-radius:8px;padding:10px;margin:12px 0}.m{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee;font-size:12px}.m:last-child{border-bottom:none}
-  table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #ddd;padding:6px 4px;font-size:10px;word-break:break-word}th{background:#f5f5f5}
-  @media print{.top-actions{display:none}body{margin:0}}</style></head><body>
-  <div data-pdf><h1>신풍제약 정산서</h1><div class="sub">${escapeHtml(currentHospital())} · ${escapeHtml(currentMonth())}</div>
-  <div class="sb"><div class="m"><span>총 판매금액</span><strong>${money(t.sales)}</strong></div><div class="m"><span>총 수수료</span><strong>${money(t.fee)}</strong></div><div class="m"><span>공급가액</span><strong>${money(t.supply)}</strong></div><div class="m"><span>부가세</span><strong>${money(t.vat)}</strong></div></div></div>
+  <style>@page{size:A4 portrait;margin:10mm}${PDF_CSS}
+  table{table-layout:fixed}th:first-child,td:first-child{width:24%}</style></head><body>
+  <div data-pdf>${pdfHead('SHIN POONG · 정산서', '신풍제약 정산서', `${escapeHtml(currentHospital())}<br>정산월 ${escapeHtml(currentMonth())}`)}
+  <div class="kp"><div><span>총 판매금액</span><b>${money(t.sales)}</b></div><div class="hl"><span>총 수수료</span><b>${money(t.fee)}</b></div><div><span>공급가액</span><b>${money(t.supply)}</b></div><div><span>부가세</span><b>${money(t.vat)}</b></div></div></div>
   <table data-pdf><thead><tr><th>제품명</th><th>수량</th><th>단가</th><th>수수료율</th><th>판매금액</th><th>수수료</th><th>공급가액</th><th>부가세</th></tr></thead>
-  <tbody>${itemRows||'<tr><td colspan="8">없음</td></tr>'}</tbody></table></body></html>` });
+  <tbody>${itemRows||'<tr><td colspan="8">없음</td></tr>'}</tbody>
+  <tfoot><tr><td>합계</td><td></td><td></td><td></td><td>${money(t.sales)}</td><td class="fee">${money(t.fee)}</td><td>${money(t.supply)}</td><td>${money(t.vat)}</td></tr></tfoot></table>
+  <p data-pdf class="note">공급가액 = 수수료 ÷ 1.1 · 부가세 = 수수료 − 공급가액</p></body></html>` });
 }
 function downloadMonthCsv() {
   const rows = st.monthFilter==='ALL' ? st.saved : st.saved.filter(x=>x.month===st.monthFilter);
@@ -2501,12 +2570,12 @@ function openMonthPdf() {
   let gs=0,gf=0,gp=0,gv=0;
   const blocks = rows.map(row => {
     let s=0,f=0,p=0,v=0;
-    const dr = (row.items_json||[]).map(item => { const c=calc(item,row.month); s+=c.sales;f+=c.fee;p+=c.supply;v+=c.vat; return `<tr><td>${escapeHtml(item.name)}</td><td>${fmtQty(item.quantity)}</td><td>${fmt(item.unitPrice)}원</td><td>${fmtRate(c.rate)}%</td><td>${money(c.sales)}</td><td>${money(c.fee)}</td><td>${money(c.supply)}</td><td>${money(c.vat)}</td></tr>`; }).join('');
+    const dr = (row.items_json||[]).map(item => { const c=calc(item,row.month); s+=c.sales;f+=c.fee;p+=c.supply;v+=c.vat; return `<tr><td>${escapeHtml(item.name)}</td><td>${fmtQty(item.quantity)}</td><td>${fmt(item.unitPrice)}원</td><td>${fmtRate(c.rate)}%</td><td>${money(c.sales)}</td><td class="fee">${money(c.fee)}</td><td>${money(c.supply)}</td><td>${money(c.vat)}</td></tr>`; }).join('');
     gs+=s;gf+=f;gp+=p;gv+=v;
-    return `<div data-pdf style="border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:12px;page-break-inside:avoid;"><h2>${escapeHtml(row.hospital)} (${escapeHtml(row.month)})</h2><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px;">${[['판매',s],['수수료',f],['공급가',p],['부가세',v]].map(([l,val])=>`<div style="border:1px solid #eee;padding:6px;border-radius:6px;font-size:11px;"><span style="color:#666;">${l}</span><br><strong>${money(val)}</strong></div>`).join('')}</div><table style="width:100%;border-collapse:collapse;"><thead><tr>${['제품명','수량','단가','요율','판매금액','수수료','공급가액','부가세'].map(h=>`<th style="border:1px solid #ddd;padding:5px;background:#f5f5f5;font-size:10px;">${h}</th>`).join('')}</tr></thead><tbody>${dr}</tbody></table></div>`;
+    return `<div data-pdf class="blk"><h2>${escapeHtml(row.hospital)} (${escapeHtml(row.month)})</h2><div class="kp">${[['판매금액',s,''],['수수료',f,'hl'],['공급가액',p,''],['부가세',v,'']].map(([l,val,c])=>`<div class="${c}"><span>${l}</span><b>${money(val)}</b></div>`).join('')}</div><table><thead><tr>${['제품명','수량','단가','요율','판매금액','수수료','공급가액','부가세'].map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${dr}</tbody></table></div>`;
   }).join('');
   const monthName = st.monthFilter==='ALL'?'전체':st.monthFilter;
-  showPrintDoc({ title: '월 전체 정산', orientation: 'portrait', filename: `월전체정산_${monthName}.pdf`, html: `<!doctype html><html><head><meta charset="utf-8"><title>월 전체 정산</title><style>@page{size:A4;margin:10mm}body{font-family:Arial,sans-serif;margin:20px;color:#111;font-size:12px}h1{font-size:20px}h2{font-size:15px;margin:0 0 6px}table td,table th{border:1px solid #ddd;padding:5px;font-size:10px;word-break:break-word}.top{margin-bottom:12px}.top button{padding:8px;border:1px solid #bbb;background:#f7f7f7;border-radius:6px;cursor:pointer}@media print{.top{display:none}body{margin:0}}</style></head><body><div data-pdf><h1>신풍제약 월 전체 정산 — ${monthName}</h1><p>병원 ${rows.length}처 · 총판매 ${money(gs)} · 총수수료 ${money(gf)}</p></div>${blocks}</body></html>` });
+  showPrintDoc({ title: '월 전체 정산', orientation: 'portrait', filename: `월전체정산_${monthName}.pdf`, html: `<!doctype html><html><head><meta charset="utf-8"><title>월 전체 정산</title><style>@page{size:A4;margin:10mm}${PDF_CSS}</style></head><body><div data-pdf>${pdfHead('SHIN POONG · 월 전체', '신풍제약 월 전체 정산', `정산월 ${escapeHtml(monthName)}<br>병원 ${rows.length}처`)}<div class="kp"><div><span>총 판매금액</span><b>${money(gs)}</b></div><div class="hl"><span>총 수수료</span><b>${money(gf)}</b></div><div><span>총 공급가액</span><b>${money(gp)}</b></div><div><span>총 부가세</span><b>${money(gv)}</b></div></div></div>${blocks}</body></html>` });
 }
 
 // =============================================
@@ -3116,10 +3185,17 @@ function upTable(head, rows) {
   return `<div class="table-wrap"><table><thead><tr>${head.map(h => `<th${h.num ? ' class="num"' : ''}>${h.t}</th>`).join('')}</tr></thead><tbody>${rows.join('')}</tbody></table></div>`;
 }
 
+function setUpStep(n, warn) {
+  document.querySelectorAll('#upSteps li').forEach(li => {
+    const k = Number(li.dataset.s);
+    li.className = k < n ? 'done' : (k === n ? (warn ? 'on warn' : 'on') : '');
+    if (k === n) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current');
+  });
+}
 function renderUploadPreview() {
   const box = $('upPreview');
   const up = st.upload;
-  if (!up) { box.innerHTML = ''; return; }
+  if (!up) { box.innerHTML = ''; setUpStep(1); return; }
   const plan = buildUploadPlan();
   const list = plan.toSave;
   const eSales = list.reduce((a, s) => a + s.excelSales, 0);
@@ -3269,7 +3345,7 @@ function renderUploadPreview() {
   const btnLabel = `정산서 ${list.length}건 저장${plan.orphans.length ? ` · ${plan.orphans.length}건 정리` : ''}`;
   box.innerHTML = `
     <div class="card">
-      <h3>미리보기 · ${escapeHtml(up.fileName)}</h3>
+      <h3>검증 결과 · ${escapeHtml(up.fileName)}</h3>
       <div class="small" style="margin-bottom:12px;">${cmrs.length ? `거래처 ${cmrs.map(escapeHtml).join(', ')} · ` : ''}${settleMonths.length ? `정산월 ${settleMonths.join(', ')} · ` : ''}처방월 ${[...new Set(up.rows.map(r => r.month))].sort().join(', ')}${up.rows.some(r => r.kind) ? ` · ${upCountBy(up.rows, 'kind')}` : ''}${up.rows.some(r => r.status) ? ` · 상태 ${upCountBy(up.rows, 'status')}` : ''}</div>
       <div class="up-metrics">
         <div class="up-metric"><div class="k">저장할 정산서</div><div class="v">${list.length}건</div></div>
@@ -3281,7 +3357,7 @@ function renderUploadPreview() {
       <div>${checks.join('')}</div>
     </div>
     <div class="card">
-      <h3>병원 연결</h3>
+      <h3>미리보기 · 병원 연결</h3>
       <div class="small" style="margin-bottom:10px;">엑셀의 처방처명을 어느 병원으로 저장할지 정합니다. 확인이 필요한 병원이 위에 있습니다. 직접 고른 연결은 다음 업로드 때 기억합니다.</div>
       ${upTable([{t:'엑셀 처방처명'},{t:'사업자번호'},{t:'품목',num:1},{t:'판매금액',num:1},{t:'저장할 병원'},{t:''}], hospRows)}
     </div>
@@ -3291,19 +3367,20 @@ function renderUploadPreview() {
         <div style="margin-top:10px;">${upTable([{t:'처방월'},{t:'병원'},{t:'엑셀 품목',num:1},{t:'엑셀 판매금액',num:1},{t:'저장 후 판매금액',num:1},{t:'저장 후 수수료',num:1},{t:''}], setRows)}</div>
       </details>
     </div>
-    <div class="card">
-      <div class="actions">
-        <button id="upSave" ${plan.blockReason ? 'disabled' : ''}>${btnLabel}</button>
-        <button id="upCancel" class="sec">취소</button>
-      </div>
-      <div id="upSaveMsg" class="small" style="margin-top:10px;" aria-live="polite">${escapeHtml(plan.blockReason)}</div>
-    </div>`;
+    <div class="totbar up-bar">
+      <div class="cb-sum"><span>정산서 ${list.length}건 · 수수료(부가세 포함)</span><b>${money(eFee)}</b></div>
+      <button id="upCancel" type="button" class="sec">취소</button>
+      <button id="upSave" type="button" ${plan.blockReason ? 'disabled' : ''}>${btnLabel}</button>
+    </div>
+    <div class="card"><div id="upSaveMsg" class="small" aria-live="polite">${escapeHtml(plan.blockReason) || '저장하기 전에 위 검증 결과와 병원 연결을 확인해주세요.'}</div></div>`;
+  setUpStep(plan.blockReason ? 2 : 3, !!plan.blockReason);
 }
 
 async function handleUploadFile(file) {
   if (!file) return;
   const status = $('upStatus');
   $('upPreview').innerHTML = '';
+  setUpStep(1);
   if (!/\.(xlsx|xls)$/i.test(file.name)) {
     status.innerHTML = '<span style="color:#B42318;">.xlsx 또는 .xls 파일만 올릴 수 있습니다.</span>';
     return;
@@ -3410,6 +3487,7 @@ const btnRetryLabel = plan => `정산서 ${plan.toSave.length}건 저장${plan.o
 
 function renderUploadResult(r) {
   $('upStatus').textContent = '';
+  setUpStep(5);
   $('upPreview').innerHTML = `
     <div class="card">
       <h3>저장 완료</h3>
@@ -3424,7 +3502,7 @@ function renderUploadResult(r) {
       </div>
       ${r.dists.length ? `<div class="small" style="margin-top:10px;">거래처 ${r.dists.map(escapeHtml).join(', ')}를 수수료율 0%로 등록했습니다. CSO 정산 탭의 거래처 관리에서 수수료율을 입력해주세요.</div>` : ''}
       <div class="actions" style="margin-top:12px;">
-        <button id="upGoMonthly" data-month="${escapeHtml(r.months[r.months.length - 1] || '')}">월별 현황에서 보기</button>
+        <button id="upGoMonthly" data-month="${escapeHtml(r.months[r.months.length - 1] || '')}">병원별 정산에서 보기</button>
         <button id="upGoCso" class="sec">CSO 정산 보기</button>
       </div>
     </div>`;
@@ -3468,7 +3546,7 @@ function renderUploadResult(r) {
   box.addEventListener('click', e => {
     const id = e.target.id;
     if (id === 'upSave') saveUpload();
-    else if (id === 'upCancel') { st.upload = null; box.innerHTML = ''; $('upStatus').textContent = ''; }
+    else if (id === 'upCancel') { st.upload = null; box.innerHTML = ''; $('upStatus').textContent = ''; setUpStep(1); }
     else if (id === 'upGoMonthly') {
       const m = e.target.dataset.month;
       if (m) { st.monthFilter = m; renderMonthFilter(); $('monthFilter').value = m; }
@@ -3513,6 +3591,8 @@ $('csoMonthFilter').addEventListener('change', e => { st.csoMonthFilter = e.targ
 $('csoSelectAll').addEventListener('change', e => setAllCsoDistributorSelection(e.target.checked));
 $('printCso').addEventListener('click', printCsoSettlement);
 $('csoBarPrint').addEventListener('click', printCsoSettlement);
+$('prodSearch').addEventListener('input', e => { st.prodQ = e.target.value; renderAdminLists(); });
+document.querySelectorAll('#prodChips button').forEach(b => b.addEventListener('click', () => { st.prodF = b.dataset.f; renderAdminLists(); }));
 $('totMore').addEventListener('click', e => { const bar = e.currentTarget.closest('.totbar'); const x = bar.classList.toggle('x'); e.currentTarget.textContent = x ? '접기' : '자세히'; e.currentTarget.setAttribute('aria-expanded', x); });
 $('monthSearch').addEventListener('input', () => renderMonthOverview());
 $('addMonth').addEventListener('click', addMonthFn);
