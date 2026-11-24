@@ -1608,7 +1608,7 @@ function printCsoSettlement() {
     grandSales += totalSales; grandFee += totalFee;
 
     blocks += `
-      <div style="margin-bottom:28px;page-break-inside:avoid;">
+      <div data-pdf style="margin-bottom:28px;page-break-inside:avoid;">
         <div class="dist-header">
           <strong>${escapeHtml(distName)}</strong>
           <span>수수료율 ${fmtRate(rate*100)}%</span>
@@ -1634,9 +1634,7 @@ function printCsoSettlement() {
 
   const selectedDistributorCount = Object.keys(grouped).length;
   const monthLabel = month === 'ALL' ? '전체' : month.replace('-','년 ') + '월';
-  const popup = window.open('','_blank');
-  if (!popup) { alert('팝업 차단됨'); return; }
-  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>정산서</title>
+  showPrintDoc({ title: '정산서', orientation: 'landscape', filename: `정산서_${monthLabel.replace(/\s/g,'')}.pdf`, html: `<!doctype html><html><head><meta charset="utf-8"><title>정산서</title>
     <style>
       @page{size:A4 landscape;margin:12mm}
       body{font-family:'Apple SD Gothic Neo','Noto Sans KR',Arial,sans-serif;margin:18px;color:#111;font-size:15px;}
@@ -1661,17 +1659,228 @@ function printCsoSettlement() {
       .total-row td{background:#e8f0fe;font-weight:700;font-size:15px;padding:10px 14px;}
       @media print{.top{display:none}body{margin:0}}
     </style></head><body>
-    <div class="top"><button onclick="window.print()">인쇄 / PDF 저장</button></div>
-    <h1>정산서</h1>
+    <div data-pdf><h1>정산서</h1>
     <p style="color:#555;margin:0 0 18px;font-size:15px;">정산 월: ${monthLabel} · 선택 거래처: ${selectedDistributorCount}곳</p>
     <div class="summary-box">
       <div>선택 판매금액 합계<strong>${money(grandSales)}</strong></div>
       <div>선택 수수료 합계<strong>${money(grandFee)}</strong></div>
-    </div>
+    </div></div>
     ${blocks}
-    <p style="text-align:right;color:#888;font-size:13px;margin-top:24px;">※ 본 정산서는 거래처별 협의 수수료를 기준으로 작성되었습니다.</p>
-  </body></html>`);
-  popup.document.close();
+    <p data-pdf style="text-align:right;color:#888;font-size:13px;margin-top:24px;">※ 본 정산서는 거래처별 협의 수수료를 기준으로 작성되었습니다.</p>
+  </body></html>` });
+}
+
+// ===== 출력 미리보기 (휴대폰 홈 화면 앱에서도 동작) =====
+// 새 창(window.open)은 홈 화면 앱에서 인쇄가 막히므로, 앱 화면 안에 미리보기를 띄우고
+// ① PDF 파일 저장(공유 화면 → 카톡·파일·프린트) ② 인쇄 를 제공한다.
+const PDF_LIBS = [
+  ['html2canvas', 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js'],
+  ['jspdf', 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'],
+];
+let pdfLibsLoading = null;
+function ensurePdfLibs() {
+  if (window.html2canvas && window.jspdf) return Promise.resolve();
+  if (!pdfLibsLoading) {
+    pdfLibsLoading = Promise.all(PDF_LIBS.map(([name, src]) => new Promise((resolve, reject) => {
+      if (window[name]) return resolve();
+      const s = document.createElement('script');
+      s.src = src;
+      s.onload = () => window[name] ? resolve() : reject(new Error('PDF 도구를 불러오지 못했습니다.'));
+      s.onerror = () => reject(new Error('PDF 도구를 불러오지 못했습니다. 인터넷 연결을 확인해주세요.'));
+      document.head.appendChild(s);
+    }))).catch(e => { pdfLibsLoading = null; throw e; });
+  }
+  return pdfLibsLoading;
+}
+
+const PRINT_PAGE_PX = { portrait: 794, landscape: 1123 }; // A4 폭(96dpi 기준)
+let printView = null;
+
+function ensurePrintView() {
+  if (printView) return printView;
+  const wrap = document.createElement('div');
+  wrap.id = 'printView';
+  wrap.style.cssText = 'display:none;position:fixed;inset:0;z-index:10000;background:#1e293b;flex-direction:column;';
+  wrap.innerHTML = `
+    <div style="padding:10px 12px;padding-top:max(10px, env(safe-area-inset-top));background:#0f172a;border-bottom:1px solid #334155;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;">
+        <strong id="pvTitle" style="font-size:16px;color:#f8fafc;">정산서</strong>
+        <span style="font-size:12px;color:#94a3b8;">미리보기</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:8px;">
+        <button id="pvPdf" type="button" style="padding:11px 8px;">PDF 저장</button>
+        <button id="pvPrint" type="button" class="sec" style="padding:11px 8px;">인쇄</button>
+        <button id="pvClose" type="button" class="sec" style="padding:11px 8px;">닫기</button>
+      </div>
+      <div id="pvMsg" style="margin-top:8px;font-size:13px;line-height:1.45;color:#cbd5e1;display:none;"></div>
+    </div>
+    <div id="pvScroll" style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch;padding:12px;">
+      <div id="pvSheet" style="position:relative;margin:0 auto;background:#fff;box-shadow:0 2px 10px rgba(0,0,0,.12);overflow:hidden;">
+        <iframe id="pvFrame" title="출력 미리보기" style="position:absolute;left:0;top:0;border:0;transform-origin:0 0;background:#fff;"></iframe>
+      </div>
+    </div>`;
+  document.body.appendChild(wrap);
+  printView = { wrap, frame: wrap.querySelector('#pvFrame'), sheet: wrap.querySelector('#pvSheet'),
+    scroll: wrap.querySelector('#pvScroll'), msg: wrap.querySelector('#pvMsg'), pdfBtn: wrap.querySelector('#pvPdf'),
+    opts: null, pdfFile: null };
+  wrap.querySelector('#pvClose').addEventListener('click', closePrintView);
+  wrap.querySelector('#pvPrint').addEventListener('click', printFromView);
+  printView.pdfBtn.addEventListener('click', savePdfFromView);
+  window.addEventListener('resize', () => { if (printView.wrap.style.display !== 'none') fitPrintView(); });
+  return printView;
+}
+
+function setPrintMsg(text, color) {
+  const pv = ensurePrintView();
+  pv.msg.style.display = text ? 'block' : 'none';
+  pv.msg.style.color = color || '#cbd5e1';
+  pv.msg.textContent = text || '';
+}
+
+function fitPrintView() {
+  const pv = printView; if (!pv || !pv.opts) return;
+  const doc = pv.frame.contentDocument; if (!doc || !doc.body) return;
+  const w = PRINT_PAGE_PX[pv.opts.orientation] || PRINT_PAGE_PX.portrait;
+  pv.frame.style.width = w + 'px';
+  const h = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight);
+  pv.frame.style.height = h + 'px';
+  const avail = Math.max(200, pv.scroll.clientWidth - 24);
+  const scale = Math.min(1, avail / w);
+  pv.frame.style.transform = `scale(${scale})`;
+  pv.sheet.style.width = Math.round(w * scale) + 'px';
+  pv.sheet.style.height = Math.round(h * scale) + 'px';
+}
+
+function showPrintDoc(opts) {
+  const pv = ensurePrintView();
+  pv.opts = opts; pv.pdfFile = null;
+  pv.wrap.querySelector('#pvTitle').textContent = opts.title || '정산서';
+  pv.pdfBtn.textContent = 'PDF 저장'; pv.pdfBtn.disabled = false;
+  setPrintMsg('');
+  pv.frame.onload = () => { fitPrintView(); setTimeout(fitPrintView, 300); };
+  pv.frame.srcdoc = opts.html;
+  pv.wrap.style.display = 'flex';
+  document.documentElement.style.overflow = 'hidden';
+  pv.scroll.scrollTop = 0;
+}
+
+function closePrintView() {
+  if (!printView) return;
+  printView.wrap.style.display = 'none';
+  printView.frame.srcdoc = '<!doctype html><html><body></body></html>';
+  printView.opts = null; printView.pdfFile = null;
+  document.documentElement.style.overflow = '';
+}
+
+function isStandaloneApp() {
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || window.navigator.standalone === true;
+}
+
+function printFromView() {
+  const pv = printView; if (!pv) return;
+  try {
+    pv.frame.contentWindow.focus();
+    pv.frame.contentWindow.print();
+    if (isStandaloneApp() || /iphone|ipad|android/i.test(navigator.userAgent)) {
+      setPrintMsg('인쇄 창이 뜨지 않으면 [PDF 저장]을 누른 뒤, 공유 화면에서 "프린트"를 고르세요.');
+    }
+  } catch (e) {
+    setPrintMsg('이 화면에서는 인쇄 창을 열 수 없습니다. [PDF 저장]을 누른 뒤 공유 화면에서 "프린트"를 고르세요.', '#fca5a5');
+  }
+}
+
+// 블록(data-pdf) 단위로 그려 A4에 차례로 붙인다. 표는 줄 경계에서 다음 장으로 넘긴다.
+async function buildPdfFromDoc(doc, orientation) {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation, unit: 'mm', format: 'a4', compress: true });
+  const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight();
+  const m = 10, cw = pw - m * 2, bottom = ph - m;
+  let blocks = [...doc.querySelectorAll('[data-pdf]')];
+  if (!blocks.length) blocks = [doc.body];
+  let y = m, first = true;
+  for (const el of blocks) {
+    const r = el.getBoundingClientRect();
+    const wPx = Math.max(1, r.width), hPx = Math.max(1, r.height);
+    const mmPerPx = cw / wPx;
+    // 휴대폰 캔버스 한도(약 1600만 화소)를 넘지 않도록 배율 조정
+    const scale = Math.max(0.6, Math.min(2, Math.sqrt(14e6 / (wPx * hPx))));
+    const canvas = await window.html2canvas(el, { scale, backgroundColor: '#ffffff', logging: false, useCORS: true,
+      windowWidth: doc.documentElement.scrollWidth });
+    const cuts = [...el.querySelectorAll('tr')].map(tr => tr.getBoundingClientRect().bottom - r.top)
+      .filter(v => v > 0 && v < hPx).sort((a, b) => a - b);
+    cuts.push(hPx);
+    const pagePx = (bottom - m) / mmPerPx;
+    let start = 0;
+    if (!first && hPx <= pagePx && (bottom - y) / mmPerPx < hPx) { pdf.addPage(); y = m; } // 한 장에 들어가는 블록은 쪼개지 않음
+    while (start < hPx - 0.5) {
+      const availPx = (bottom - y) / mmPerPx;
+      let end;
+      if (hPx - start <= availPx) end = hPx;
+      else {
+        const fit = cuts.filter(c => c > start + 1 && c <= start + availPx);
+        if (fit.length && !(start === 0 && y > m + 0.1 && fit[fit.length - 1] < Math.min(160, hPx * 0.2))) end = fit[fit.length - 1];
+        else if (y > m + 0.1) { pdf.addPage(); y = m; continue; } // 제목·머리줄만 남는 경우도 다음 장으로
+        else end = start + availPx;
+      }
+      const sy = Math.round(start * scale), sh = Math.max(1, Math.round((end - start) * scale));
+      const part = document.createElement('canvas');
+      part.width = canvas.width; part.height = Math.min(sh, canvas.height - sy);
+      part.getContext('2d').drawImage(canvas, 0, sy, canvas.width, part.height, 0, 0, canvas.width, part.height);
+      const hMm = (part.height / scale) * mmPerPx;
+      pdf.addImage(part.toDataURL('image/jpeg', 0.92), 'JPEG', m, y, cw, hMm);
+      part.width = part.height = 0;
+      y += hMm; start = end;
+      if (start < hPx - 0.5) { pdf.addPage(); y = m; }
+    }
+    canvas.width = canvas.height = 0;
+    y += 3; first = false;
+  }
+  return pdf.output('blob');
+}
+
+async function deliverPdf(file) {
+  if (navigator.canShare && navigator.share) {
+    let can = false; try { can = navigator.canShare({ files: [file] }); } catch (e) {}
+    if (can) {
+      try { await navigator.share({ files: [file], title: file.name }); return 'shared'; }
+      catch (e) {
+        if (e && e.name === 'AbortError') return 'cancelled';
+        if (e && e.name === 'NotAllowedError') return 'needtap';
+      }
+    }
+  }
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url; a.download = file.name; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  return 'downloaded';
+}
+
+async function savePdfFromView() {
+  const pv = printView; if (!pv || !pv.opts) return;
+  const btn = pv.pdfBtn;
+  if (pv.pdfFile) { // 이미 만든 파일: 바로 공유/저장 (휴대폰은 버튼을 다시 눌러야 공유 창이 열림)
+    const r = await deliverPdf(pv.pdfFile);
+    if (r === 'needtap') setPrintMsg('[PDF 보내기]를 한 번 더 눌러주세요.');
+    else if (r !== 'cancelled') setPrintMsg('PDF를 만들었습니다. 공유 화면에서 저장·카톡·프린트를 고를 수 있습니다.', '#86efac');
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'PDF 만드는 중…';
+  setPrintMsg('PDF를 만들고 있습니다. 잠시만 기다려주세요.');
+  try {
+    await ensurePdfLibs();
+    const blob = await buildPdfFromDoc(pv.frame.contentDocument, pv.opts.orientation);
+    pv.pdfFile = new File([blob], pv.opts.filename || '정산서.pdf', { type: 'application/pdf' });
+    btn.textContent = 'PDF 보내기'; btn.disabled = false;
+    const r = await deliverPdf(pv.pdfFile);
+    if (r === 'needtap') setPrintMsg('PDF가 준비됐습니다. [PDF 보내기]를 눌러 저장·카톡·프린트를 고르세요.', '#86efac');
+    else if (r === 'cancelled') setPrintMsg('PDF가 준비됐습니다. 다시 보내려면 [PDF 보내기]를 누르세요.', '#86efac');
+    else setPrintMsg('PDF를 만들었습니다. 공유 화면에서 저장·카톡·프린트를 고를 수 있습니다.', '#86efac');
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'PDF 저장';
+    setPrintMsg('PDF를 만들지 못했습니다: ' + (e && e.message ? e.message : e), '#fca5a5');
+  }
 }
 
 // 모달
@@ -1809,20 +2018,17 @@ function downloadCsv() {
 function openPdf() {
   const t = currentTotals();
   const itemRows = st.items.map(item => { const c=calc(item); return `<tr><td>${escapeHtml(item.name)}</td><td>${fmtQty(item.quantity)}</td><td>${fmt(item.unitPrice)}원</td><td>${fmtRate(c.rate)}%</td><td>${money(c.sales)}</td><td>${money(c.fee)}</td><td>${money(c.supply)}</td><td>${money(c.vat)}</td></tr>`; }).join('');
-  const popup = window.open('','_blank'); if(!popup) return alert('팝업 차단됨');
-  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>정산서</title>
+  showPrintDoc({ title: '정산서', orientation: 'portrait', filename: `${currentHospital()}_${currentMonth()}_정산서.pdf`, html: `<!doctype html><html><head><meta charset="utf-8"><title>정산서</title>
   <style>@page{size:A4 portrait;margin:10mm}body{font-family:Arial,sans-serif;margin:20px;color:#111}
   h1{margin:0 0 6px;font-size:22px}.sub{color:#555;font-size:12px;margin-bottom:12px}
   .top-actions{margin-bottom:14px}.top-actions button{padding:10px;border:1px solid #bbb;background:#f7f7f7;border-radius:8px;cursor:pointer}
   .sb{border:1px solid #ddd;border-radius:8px;padding:10px;margin:12px 0}.m{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #eee;font-size:12px}.m:last-child{border-bottom:none}
   table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{border:1px solid #ddd;padding:6px 4px;font-size:10px;word-break:break-word}th{background:#f5f5f5}
   @media print{.top-actions{display:none}body{margin:0}}</style></head><body>
-  <div class="top-actions"><button onclick="window.print()">인쇄 / PDF 저장</button></div>
-  <h1>신풍제약 정산서</h1><div class="sub">${escapeHtml(currentHospital())} · ${escapeHtml(currentMonth())}</div>
-  <div class="sb"><div class="m"><span>총 판매금액</span><strong>${money(t.sales)}</strong></div><div class="m"><span>총 수수료</span><strong>${money(t.fee)}</strong></div><div class="m"><span>공급가액</span><strong>${money(t.supply)}</strong></div><div class="m"><span>부가세</span><strong>${money(t.vat)}</strong></div></div>
-  <table><thead><tr><th>제품명</th><th>수량</th><th>단가</th><th>수수료율</th><th>판매금액</th><th>수수료</th><th>공급가액</th><th>부가세</th></tr></thead>
-  <tbody>${itemRows||'<tr><td colspan="8">없음</td></tr>'}</tbody></table></body></html>`);
-  popup.document.close();
+  <div data-pdf><h1>신풍제약 정산서</h1><div class="sub">${escapeHtml(currentHospital())} · ${escapeHtml(currentMonth())}</div>
+  <div class="sb"><div class="m"><span>총 판매금액</span><strong>${money(t.sales)}</strong></div><div class="m"><span>총 수수료</span><strong>${money(t.fee)}</strong></div><div class="m"><span>공급가액</span><strong>${money(t.supply)}</strong></div><div class="m"><span>부가세</span><strong>${money(t.vat)}</strong></div></div></div>
+  <table data-pdf><thead><tr><th>제품명</th><th>수량</th><th>단가</th><th>수수료율</th><th>판매금액</th><th>수수료</th><th>공급가액</th><th>부가세</th></tr></thead>
+  <tbody>${itemRows||'<tr><td colspan="8">없음</td></tr>'}</tbody></table></body></html>` });
 }
 function downloadMonthCsv() {
   const rows = st.monthFilter==='ALL' ? st.saved : st.saved.filter(x=>x.month===st.monthFilter);
@@ -1842,11 +2048,10 @@ function openMonthPdf() {
     let s=0,f=0,p=0,v=0;
     const dr = (row.items_json||[]).map(item => { const c=calc(item,row.month); s+=c.sales;f+=c.fee;p+=c.supply;v+=c.vat; return `<tr><td>${escapeHtml(item.name)}</td><td>${fmtQty(item.quantity)}</td><td>${fmt(item.unitPrice)}원</td><td>${fmtRate(c.rate)}%</td><td>${money(c.sales)}</td><td>${money(c.fee)}</td><td>${money(c.supply)}</td><td>${money(c.vat)}</td></tr>`; }).join('');
     gs+=s;gf+=f;gp+=p;gv+=v;
-    return `<div style="border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:12px;page-break-inside:avoid;"><h2>${escapeHtml(row.hospital)} (${escapeHtml(row.month)})</h2><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px;">${[['판매',s],['수수료',f],['공급가',p],['부가세',v]].map(([l,val])=>`<div style="border:1px solid #eee;padding:6px;border-radius:6px;font-size:11px;"><span style="color:#666;">${l}</span><br><strong>${money(val)}</strong></div>`).join('')}</div><table style="width:100%;border-collapse:collapse;"><thead><tr>${['제품명','수량','단가','요율','판매금액','수수료','공급가액','부가세'].map(h=>`<th style="border:1px solid #ddd;padding:5px;background:#f5f5f5;font-size:10px;">${h}</th>`).join('')}</tr></thead><tbody>${dr}</tbody></table></div>`;
+    return `<div data-pdf style="border:1px solid #ddd;border-radius:8px;padding:12px;margin-bottom:12px;page-break-inside:avoid;"><h2>${escapeHtml(row.hospital)} (${escapeHtml(row.month)})</h2><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:8px;">${[['판매',s],['수수료',f],['공급가',p],['부가세',v]].map(([l,val])=>`<div style="border:1px solid #eee;padding:6px;border-radius:6px;font-size:11px;"><span style="color:#666;">${l}</span><br><strong>${money(val)}</strong></div>`).join('')}</div><table style="width:100%;border-collapse:collapse;"><thead><tr>${['제품명','수량','단가','요율','판매금액','수수료','공급가액','부가세'].map(h=>`<th style="border:1px solid #ddd;padding:5px;background:#f5f5f5;font-size:10px;">${h}</th>`).join('')}</tr></thead><tbody>${dr}</tbody></table></div>`;
   }).join('');
-  const popup = window.open('','_blank'); if(!popup) return alert('팝업 차단됨');
-  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>월 전체 정산</title><style>@page{size:A4;margin:10mm}body{font-family:Arial,sans-serif;margin:20px;color:#111;font-size:12px}h1{font-size:20px}h2{font-size:15px;margin:0 0 6px}table td,table th{border:1px solid #ddd;padding:5px;font-size:10px;word-break:break-word}.top{margin-bottom:12px}.top button{padding:8px;border:1px solid #bbb;background:#f7f7f7;border-radius:6px;cursor:pointer}@media print{.top{display:none}body{margin:0}}</style></head><body><div class="top"><button onclick="window.print()">인쇄/PDF</button></div><h1>신풍제약 월 전체 정산 — ${st.monthFilter==='ALL'?'전체':st.monthFilter}</h1><p>병원 ${rows.length}처 · 총판매 ${money(gs)} · 총수수료 ${money(gf)}</p>${blocks}</body></html>`);
-  popup.document.close();
+  const monthName = st.monthFilter==='ALL'?'전체':st.monthFilter;
+  showPrintDoc({ title: '월 전체 정산', orientation: 'portrait', filename: `월전체정산_${monthName}.pdf`, html: `<!doctype html><html><head><meta charset="utf-8"><title>월 전체 정산</title><style>@page{size:A4;margin:10mm}body{font-family:Arial,sans-serif;margin:20px;color:#111;font-size:12px}h1{font-size:20px}h2{font-size:15px;margin:0 0 6px}table td,table th{border:1px solid #ddd;padding:5px;font-size:10px;word-break:break-word}.top{margin-bottom:12px}.top button{padding:8px;border:1px solid #bbb;background:#f7f7f7;border-radius:6px;cursor:pointer}@media print{.top{display:none}body{margin:0}}</style></head><body><div data-pdf><h1>신풍제약 월 전체 정산 — ${monthName}</h1><p>병원 ${rows.length}처 · 총판매 ${money(gs)} · 총수수료 ${money(gf)}</p></div>${blocks}</body></html>` });
 }
 
 // =============================================
